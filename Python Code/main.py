@@ -1,7 +1,7 @@
-## Fraytools Animation Importer V.9
+## Fraytools Animation Importer V.91
 ## Created by: Zardy Z
 
-print("Fraytools Animation Importer V.9")
+print("Fraytools Animation Importer V.91")
 print("By: Zardy Z")
 
 import os
@@ -1144,7 +1144,7 @@ settings_layout =[[sg.Text('Mugen Folder',font=('Edit Undo BRK',18)),
                   [sg.Button('Save',key='settings_save'),sg.Button('Exit',key='settings_exit')]]
 
 
-layout = [[sg.Text('Fraytools Anim Importer V.85', justification='center',font=('Centie Sans',26))],
+layout = [[sg.Text('Fraytools Anim Importer V.91', justification='center',font=('Centie Sans',26))],
           [sg.Column(start_layout, key='Start Layout', element_justification='c'),
            sg.Column(settings_layout, key='Settings Layout', element_justification='c', visible=False),
            sg.Column(anim_name_layout, key='Anim Name Layout', element_justification='c', visible=False),
@@ -1497,7 +1497,7 @@ while True:
                     #print(sprite_names)
                     
                     anim_data = getAnimData(anim_indexes, anim_lines, sprite_names, hurt_check, hit_check)
-                    print(anim_data['wtf'])
+                    
                     
                     
                     for a in anim_data:
@@ -1530,8 +1530,7 @@ while True:
 
                         final_names = []
                         for n in new_names:
-                            if a == 'wtf':
-                                print(n)
+                            
                             if n != 'None':
                                 final_names.append(n+'.meta')
                             else:
@@ -1547,8 +1546,7 @@ while True:
                         
                         
                 #print(anim_data)
-                    print('here')
-                    print(anim_data['wtf']['sprite_names'])
+                    
                 else:
                     anim_data = getAnimData(anim_indexes, anim_lines, sprite_names, hurt_check, hit_check)
                     
