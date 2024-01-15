@@ -1,13 +1,14 @@
 ## Fraytools Animation Importer V.91
 ## Created by: Zardy Z
 
-print("Fraytools Animation Importer V.91")
+print("Fraytools Animation Importer V.95")
 print("By: Zardy Z")
 
 import os
 import shutil
 import json
 import uuid
+import math
 
 from codecs import encode
 
@@ -137,12 +138,10 @@ def getAnimations(air_path: str):
 
     l = 0
     while l < len(lines):
-        if '[Begin Action' in lines[l]:
-            if lines[l+1] != '\n' or lines[l+1] != '' or lines[l+1] != ' \n':
-            ##print(lines[l-1])
+        if '[begin action' in lines[l].lower():
+            if lines[l+1] != '\n' or lines[l+1] != '' or lines[l+1] != ' \n' or ';' not in lines[l]:
                 if ';' in lines[l-1]:
                     if lines[l-1] != ';':
-                        ##print(lines[l-1])
                         anim_name = lines[l-1].split(';')[1].strip()
 
                         if anim_name not in anim_names:
@@ -197,7 +196,11 @@ def getAnimData(anim_indexes: list, lines: list, sprite_names: list, hurt_check:
                     'hitbox_data':[],
                     'type':[],
                     'invert':'',
-                    'group':[]}
+                    'group':[],
+                    'orientation':[],
+                    'custom_scale_x':[],
+                    'custom_scale_y':[],
+                    'angle':[]}
         
         while c < combines:
             start = int(str(anim_indexes[a][2]).split(',')[c])
@@ -207,10 +210,10 @@ def getAnimData(anim_indexes: list, lines: list, sprite_names: list, hurt_check:
            
             i = start
             while i < len(lines):
-                if 'Clsn1:' in lines[i]:
+                if 'clsn1:' in lines[i].lower():
                     if hit_check != False:
                         hitbox_layers = getLayerCount(lines[i],hitbox_layers)
-                elif 'Clsn2:' in lines[i] or 'Clsn2Default:' in lines[i]:
+                elif 'clsn2:' in lines[i].lower() or 'clsn2default:' in lines[i].lower():
                     if hurt_check != False:
                         hurtbox_layers = getLayerCount(lines[i],hurtbox_layers)
                 elif lines[i] == '\n':
@@ -226,78 +229,78 @@ def getAnimData(anim_indexes: list, lines: list, sprite_names: list, hurt_check:
             hurt_frames = 0
             hit_frames = 0
             for line in range(start,end):
+                low_line = lines[line].lower()
+                if ';' not in low_line:
+                    if 'clsn2:' in low_line:
+                        hurt_frames = int(low_line.replace('clsn2:','').strip())
+                    elif 'clsn2default:' in low_line:
+                        hurt_frames = int(low_line.replace('clsn2default:','').strip())
+                    elif 'clsn1:' in low_line:
+                        hit_frames = int(low_line.replace('clsn1:','').strip())
 
-                if 'Clsn2:' in lines[line]:
-                    hurt_frames = int(lines[line].replace('Clsn2:','').strip())
-                elif 'Clsn2Default:' in lines[line]:
-                    hurt_frames = int(lines[line].replace('Clsn2Default:','').strip())
-                elif 'Clsn1:' in lines[line]:
-                    hit_frames = int(lines[line].replace('Clsn1:','').strip())
+                    ## Hitbox
+                    elif (('clsn1' in low_line) and ':' not in low_line) or (('clsn2' in low_line or 'clsn2default' in low_line) and ':' not in low_line):
+                        if hit_check != False:
+                            if hit_frames > 0:
+                                temp_hitbox_data,temp_hurtbox_data,new_frameset = getBoxData(lines[line],temp_hitbox_data,hitbox_layers,temp_hurtbox_data,new_frameset)
+                                hit_frames -= 1
 
-                ## Hitbox
-                elif (('Clsn1' in lines[line]) and ':' not in lines[line]) or (('Clsn2' in lines[line] or 'Clsn2Default' in lines[line]) and ':' not in lines[line]):
-                    if hit_check != False:
-                        if hit_frames > 0:
-                            temp_hitbox_data,temp_hurtbox_data,new_frameset = getBoxData(lines[line],temp_hitbox_data,hitbox_layers,temp_hurtbox_data,new_frameset)
-                            hit_frames -= 1
-
-                    if hurt_check != False:
-                        if hurt_frames > 0:
-                            temp_hurtbox_data,temp_hitbox_data,new_frameset = getBoxData(lines[line],temp_hurtbox_data,hurtbox_layers,temp_hitbox_data,new_frameset)
-                            hurt_frames -= 1
-                
-                ## Image data
-                elif lines[line].count(',') >= 4:
-                    new_frameset = True
-                    data = lines[line].split(',')
-                    if str(data[0]) != '-1':
-                        sprite_number = str(data[0]).strip()+'-'+str(data[1]).strip()+'.png.meta'
-                        sprite_check = False
-                        for sprite_name in sprite_names:
-                            i = 0
-                            num_check = False
-                            for s in sprite_name:
-                                if s.isdigit() == True:
-                                    num_check = True
-                                    break
-                                else:
-                                    i += 1
-                            if num_check == True:
-                                new_name = sprite_name[i:]
-                                #print(new_name)
-                                if sprite_number == new_name:
-                                    
-                                    new_dict['sprite_names'].append(sprite_name)
-                                    sprite_check = True
-
-                        if sprite_check == False:
-                            new_dict['sprite_names'].append(None)
-                                
-                    else:
-                        new_dict['sprite_names'].append(None)
-                    if anim_indexes[a][5] == 'True':
-                        new_dict['sprite_pos'].append({'X':-1*(int(data[2].strip())),'Y':int(data[3].strip())})
-                    else:
-                        new_dict['sprite_pos'].append({'X':int(data[2].strip()),'Y':int(data[3].strip())})
-                    frame_data = data[4].strip()
-                    if ',' in frame_data:
-                        new_dict['frame_data'].append(int(frame_data.split(',')[0].strip()))
-                    else:
-                        new_dict['frame_data'].append(int(frame_data))
-
-                    blank_hurt = hurtbox_layers - len(temp_hurtbox_data)
-                    if blank_hurt != 0:
-                        for x in range(0,blank_hurt):
-                            temp_hurtbox_data.append(None)
-
-                    blank_hit = hitbox_layers - len(temp_hitbox_data)
-                    if blank_hit != 0:
-                        for x in range(0,blank_hit):
-                            temp_hitbox_data.append(None)
-
+                        if hurt_check != False:
+                            if hurt_frames > 0:
+                                temp_hurtbox_data,temp_hitbox_data,new_frameset = getBoxData(lines[line],temp_hurtbox_data,hurtbox_layers,temp_hitbox_data,new_frameset)
+                                hurt_frames -= 1
                     
-                    new_dict['hurtbox_data'].append(temp_hurtbox_data)
-                    new_dict['hitbox_data'].append(temp_hitbox_data)
+                    ## Image data
+                    elif lines[line].count(',') >= 4:
+                        new_frameset = True
+                        data = lines[line].split(',')
+                        if str(data[0]) != '-1':
+                            sprite_number = str(data[0]).strip()+'-'+str(data[1]).strip()+'.png.meta'
+                            new_dict['sprite_names'].append(sprite_number)
+                            if len(data) >= 6:
+                                new_dict['orientation'].append(data[5].strip())
+                            else:
+                                new_dict['orientation'].append('')
+
+                            if len(data) >= 9:
+                                new_dict['custom_scale_x'].append(float(data[7].strip()))
+                                new_dict['custom_scale_y'].append(float(data[8].strip()))
+                            else:
+                                new_dict['custom_scale_x'].append(None)
+                                new_dict['custom_scale_y'].append(None)
+
+                            if len(data) >= 10:
+                                new_dict['angle'].append(float(data[9].strip()))
+                            else:
+                                new_dict['angle'].append(None)
+                                
+                        if anim_indexes[a][5] == 'True':
+                            new_dict['sprite_pos'].append({'X':-1*(int(data[2].strip())),'Y':int(data[3].strip())})
+                        else:
+                            new_dict['sprite_pos'].append({'X':int(data[2].strip()),'Y':int(data[3].strip())})
+                        frame_data = data[4].strip()
+                        if ',' in frame_data:
+                            new_dict['frame_data'].append(int(frame_data.split(',')[0].strip()))
+                        else:
+                            if ';' in frame_data:
+                                new_data = frame_data.split(';')[0].strip()
+                                new_dict['frame_data'].append(int(new_data))
+                            else:
+                                new_dict['frame_data'].append(int(frame_data.strip()))
+
+                        blank_hurt = hurtbox_layers - len(temp_hurtbox_data)
+                        if blank_hurt != 0:
+                            for x in range(0,blank_hurt):
+                                temp_hurtbox_data.append(None)
+
+                        blank_hit = hitbox_layers - len(temp_hitbox_data)
+                        if blank_hit != 0:
+                            for x in range(0,blank_hit):
+                                temp_hitbox_data.append(None)
+
+                        
+                        new_dict['hurtbox_data'].append(temp_hurtbox_data)
+                        new_dict['hitbox_data'].append(temp_hitbox_data)
 
             c += 1
             
@@ -306,8 +309,6 @@ def getAnimData(anim_indexes: list, lines: list, sprite_names: list, hurt_check:
         new_dict['type'].append(anim_indexes[a][4])
         anim_data[anim_indexes[a][1]] = new_dict
         a += 1
-    #print(anim_data['Stand'])
-    #exit()
     return anim_data
 
 
@@ -330,17 +331,20 @@ def getSpriteData(path: str):
     image_align_x, image_align_y = 0,0
     
     for f in os.listdir(path):
+        sprite_data[f] = {}
         if '.meta' in f and '.txt' not in f:
             data = getJSONData(path+'\\'+f)
-            sprite_data[f] = data['guid']
+            sprite_data[f]['guid'] = data['guid']
             sprite_names.append(f)
-            #if char_name == '':
-            #    char_name = f.split('_')[0]+'_'
                 
         elif '.txt' in f and '.meta' not in f:
             lines = readFile(path+'\\'+f)
                 
             image_align_x, image_align_y = getAxis(lines)
+        elif '.png' in f and '.meta' not in f:
+            im = Image.open(os.path.join(path,f))
+            width, height = im.width, im.height
+            sprite_data[f]['pivot'] = {'X':width/2,'Y':height/2}
                                 
     return sprite_data, sprite_data.keys(), image_align_x, image_align_y, sprite_names
 
@@ -376,28 +380,24 @@ def readFFE(path:str, groups:list):
     while d < len(data):
         
         if '[SpriteDef]' in data[d]:
-            sprite_name = data[d+7].split('= ')[1].strip()
+            if 'file' in data[d+6]:
+                add = 7
+                sprite_name = data[d+6].split('= ')[1].strip()
+            else:
+                sprite_name = data[d+7].split('= ')[1].strip()
+                add = 8
             group = int(data[d+1].split('=')[1].strip())
             image = int(data[d+2].split('=')[1].strip())
             xaxis = int(data[d+3].split('=')[1]) * -1
             yaxis = int(data[d+4].split('=')[1]) * -1
-            group_check = False
-            for g in groups:
-                if g == group:
-                    group_check = True
 
-            if group_check == True:
-                ffe_data[sprite_name] = {'X':xaxis,'Y':yaxis}
-
-            if str(group)+'-'+str(image)+'.png' != sprite_name:
-                invalid_names[str(group)+'-'+str(image)+'.png.meta'] = sprite_name+'.meta'
-
-            
-            d += 8
+            ## Version 1.0 Change
+            ffe_data[str(group)+'-'+str(image)+'.png.meta'] = {'Sprite Name':sprite_name+'.meta','X':xaxis,'Y':yaxis}
+            d += add
         else:
             d += 1
         
-    return ffe_data, invalid_names
+    return ffe_data
 
 
 def getSpritePosFFE(names:list, ffe_data:dict):
@@ -447,26 +447,19 @@ def makeHKeyframes(h_data: list, scale_x: float, scale_y: float, h_keyframes: di
     hl = 0
     for h in h_data:        
         if h == None:
-            #img_h_guid = str(uuid.uuid4())
-
             img_h_guid, new_keyframe = makeKeyframe(f,None,"COLLISION_BOX")
             
             ce_data["keyframes"].append(new_keyframe)
             h_keyframes[hl].append(img_h_guid)
         else:     
             guid = str(uuid.uuid4())
-            
-            #if invert == 'True':
-            #    print(h[0])
-            #    print(h[2])
         
             scaleX = (h[0] - h[2])
             scaleY = (h[1] - h[3])
             if scaleX > 0:
                 if invert ==  'True':
                     x = (-1*scaleX)+(-1*h[2])
-                    #print(x)
-                    #print('get here')
+                    
                 else:
                     x = h[2]
             else:
@@ -525,9 +518,22 @@ def makeHLayers(h_keyframes,h_type,h_name,color,layers,ce_data):
     return layers, ce_data
 
 
+def rotate(origin, point, angle):
+    """
+    Rotate a point counterclockwise by a given angle around a given origin.
+
+    The angle should be given in radians.
+    """
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
+
 def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_align_x,image_align_y, projectile_data):
     og_scale_x = scale_x
-    #og_image_algin_x = image_align_x
+    og_scale_y = scale_y
     
     for k,v in anim_data.items():
 
@@ -559,7 +565,7 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
                 scale_x *= -1
         
         
-        for f,sn,hurt,hit,pos in zip(v['frame_data'],v['sprite_names'],v['hurtbox_data'],v['hitbox_data'],v['sprite_pos']):
+        for f,sn,hurt,hit,pos,old_pos,orient,scx,scy,angle in zip(v['frame_data'],v['sprite_names'],v['hurtbox_data'],v['hitbox_data'],v['sprite_pos'],v['old_sprite_pos'],v['orientation'],v['custom_scale_x'],v['custom_scale_y'],v['angle']):
             if int(f) == -1:
                 f = 1
                 
@@ -567,14 +573,16 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
             if sn != None:
                 for sdk in sprite_data_keys:
                     if sn == sdk:
-                        imageAsset = sprite_data[sdk]
+                        
+                        imageAsset = sprite_data[sdk]['guid']
+                        pivX, pivY = sprite_data[sdk.replace('.meta','')]['pivot']['X'],sprite_data[sdk.replace('.meta','')]['pivot']['Y']
                        
                 img_guid = str(uuid.uuid4())
                 new_symbol = {"$id":img_guid,
                               "alpha":1,
                               "imageAsset":imageAsset,
-                              "pivotX":400,
-                              "pivotY":400,
+                              "pivotX":pivX,
+                              "pivotY":pivY,
                               "pluginMetadata":{
                               },
                               "rotation":0,
@@ -584,8 +592,45 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
                               "x":(image_align_x + pos['X']) * scale_x,
                               "y":(image_align_y +pos['Y']) * scale_y
                               }
-            
-                
+
+                if k == 'special_fall':
+                    print('OG')
+                    print(old_pos['Y'] + (pivY*2))
+                if orient == 'H':
+                    new_symbol['scaleX'] = new_symbol['scaleX']*-1
+                    new_symbol['x'] = new_symbol['x']*-1
+                elif orient == 'V':
+                    new_symbol['scaleY'] = new_symbol['scaleY']*-1
+                    new_symbol['y'] = old_pos['Y'] + (pivY*2)
+                elif orient == 'HV':
+                    new_symbol['scaleX'] = new_symbol['scaleX']*-1
+                    new_symbol['x'] = new_symbol['x']*-1
+                    new_symbol['scaleY'] = new_symbol['scaleY']*-1
+                    new_symbol['y'] = old_pos['Y'] + (pivY*2)
+
+                if scx != None:
+                    if new_symbol['scaleX'] < 1:
+                        print(scx)
+                        new_symbol['scaleX'] = scx * -1
+                        new_symbol['x'] = new_symbol['x'] * scx
+                    else:
+                        new_symbol['scaleX'] = scx
+                        new_symbol['x'] = new_symbol['x'] * scx
+                    
+
+                if scy != None:
+                    if new_symbol['scaleY'] < 1:
+                        new_symbol['scaleY'] = scy * -1
+                        new_symbol['y'] = new_symbol['y'] * scy
+                    else:
+                        new_symbol['scaleY'] = scy
+                        new_symbol['y'] = new_symbol['y'] * scy
+
+                if angle != None:
+                    angle = 360 - angle
+                    new_symbol['rotation'] = angle
+                    new_symbol['x'], new_symbol['y'] = rotate((old_pos['X'],old_pos['Y']),(new_symbol['x'],-1*new_symbol['y']),-1*math.radians(angle))
+                    new_symbol['y'] *= -1
 
                 if v['type'][0] == 'Character' or v['type'][0] == 'Vfx':
                     ce_data["symbols"].append(new_symbol)
@@ -634,7 +679,6 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
                      "type":"IMAGE"
                     }
 
-        #print(new_layer)
         if v['type'][0] == 'Character' or v['type'][0] == 'Vfx':
             ce_data["layers"].append(new_layer)
         else:
@@ -642,7 +686,6 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
         
         layers.append(img_l_guid)
 
-        #print(hit_keyframes)
         if v['type'][0] == 'Character' or v['type'][0] == 'Vfx':
             layers, ce_data = makeHLayers(hit_keyframes,"HIT_BOX","hitbox","0xff0000",layers,ce_data)
         else:
@@ -682,53 +725,19 @@ def editCE(ce_data,anim_data,sprite_data,sprite_data_keys,scale_x,scale_y,image_
 '''New Project Functions'''
 def moveTemplate(template_path,project_path,sprite_path):
     list_dir = os.listdir(template_path)
-
     shutil.copytree(template_path,project_path,dirs_exist_ok=True)
-    #shutil.copytree(sprite_path,os.path.join(project_path,'library','sprites'),dirs_exist_ok=True)
 
 def moveSprites(project_path,sprite_path):
     for f in os.listdir(sprite_path):
         if '.png' in f:
             shutil.copyfile(os.path.join(sprite_path,f),os.path.join(project_path,f))
 
-def trim(im,f):
-    im2 = im.getcolors()
-    
-    if len(im2) > 1:
-        bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
-        diff = ImageChops.difference(im, bg)
-        #diff = ImageChops.add(diff, diff, 2.0, -100)
-        bbox = diff.getbbox()
-        if bbox:
-            return im.crop(bbox)
-        else: 
-            # Failed to find the borders, convert to "RGB"        
-            return trim(im.convert('RGB'),f)
-    else:
-        return False
-
-def trimSprites(path:str):
-    for f in os.listdir(path):
-        if '.png' in f and '.meta' not in f:
-            im = Image.open(os.path.join(path,f))
-            new_im = trim(im,f)
-            if new_im == False:
-                img = Image.new('RGBA',(1,1),color = (255,255,255,0))
-                img.save(os.path.join(path,f))
-            else:
-                new_im.save(os.path.join(path,f))
-    
-    
-
 def newImageSymbols(path:str):
     for subdir, dirs, files in os.walk(folder_path):
         for file in files:
             if file+'.meta' not in files and '.meta' not in file and '.txt' not in file:
-                
                 new_symbol = makeImageSymbol()
-                #print(os.path.join(path,subdir,file+'.meta'))
                 writeNewCE(new_symbol,os.path.join(path,subdir,file+'.meta'))
-
 
 def makeImageSymbol():
     new_symbol = {"export":False,
@@ -741,8 +750,6 @@ def makeImageSymbol():
                   }
     return new_symbol
     
-    
-
 def createEntity(name, object_type):
     entity_guid = str(uuid.uuid4())
     new_entity = {'animations':[],
@@ -771,17 +778,15 @@ def createEntity(name, object_type):
 
     return new_entity
                   
-
 def getManifest(path):
     data = open(path)
     data = json.load(data)
     return data
 
-
 def addProjectileManifest(manifest,name):
     new_projectile = {'id':name,
                       'type':'projectile',
-                      'objectStatsId':name+'ProjStats',
+                      'objectStatsId':name+'Stats',
                       'animationStatsId':name+'AnimStats',
                       'hitboxStatsId':name+'HitboxStats',
                       'scriptId':name+'Script',
@@ -864,7 +869,6 @@ def decodePalette(palette_path):
         
     colors = ['0xFF'+i for i in colors if len(i)]
     colors = [c for c in colors if c != '0xFF000000']
-    ##return colors, total_colors_count
     return colors
 
 def importPalette(base_palette,palette_files,costume_palette):
@@ -933,7 +937,6 @@ def importPalette(base_palette,palette_files,costume_palette):
 
     writeNewCE(costume_data,costume_palette)
 
-
 '''Creates the Fray Theme'''
 fray_theme = {'BACKGROUND': '#323232',
              'TEXT': '#e2eef5',
@@ -981,22 +984,6 @@ def update_disabled(elements: dict):
     for k,v in elements.items():
         window[k].update(disabled=v)
 
-def update_name_tracker(user_names: list):
-    '''
-    Updates the name tracker
-    table
-    '''
-
-    used_names = []
-    for ai in anim_indexes:
-        if ai[1] in default_names:
-            used_names.append(ai[1])
-            
-    for dn in default_names:
-        if dn in used_names:
-            window[dn].update(background_color = '#00e673')
-        else:
-            window[dn].update(background_color = '#ff6666')
 
 def update_table(anim_indexes: list, selected_index):
     if type(selected_index) == int:
@@ -1042,7 +1029,8 @@ def makeAnimRenamer(anim_indexes,header):
     anim_layout = [[sg.Table(anim_indexes,key='anim_table',
                              headings=header,
                              enable_events=True,display_row_numbers=True)],
-                   [sg.Button('Delete Row(s)',key='delete_row',disabled=True),
+                   [sg.Button('Keep row(s)',key='keep_row',disabled=True),
+                    sg.Button('Delete Row(s)',key='delete_row',disabled=True),
                     sg.Button('Copy Row(s)',key='copy_row', disabled=True),
                     sg.Button('▲',key='move_up',disabled=True),
                     sg.Button('▼',key='move_down',disabled=True),
@@ -1059,26 +1047,6 @@ def makeAnimRenamer(anim_indexes,header):
 
 anim_layout = [[]]
 
-name_table_layout = []
-
-i = 0
-while i < len(default_names):
-    temp_layout = []
-    for x in range(0,6):
-        if i+x < len(default_names):
-            temp_layout.append(sg.Text(default_names[i+x], key=default_names[i+x], size=(18,1), background_color='#ff6666',border_width=2))
-        else:
-            temp_layout.append(sg.Text('', key=str(i+x), size=(18,1)))
-        
-    name_table_layout.append(temp_layout)
-    i += 6
-
-name_tracker_layout = [[sg.Button('>',key='Show Name Tracker'),
-                        sg.Button('<',key='Hide Name Tracker', visible=False),
-                        sg.Column(name_table_layout,key='Name Table Layout',element_justification='c',visible=False)]]
-                    
-anim_name_layout = [[sg.Column(anim_layout, key='Anim Layout', element_justification='c'),
-                     sg.Column(name_tracker_layout, key='Name Tracker Layout', element_justification='c')]]
 
 palette_frame = [[sg.Text('Base Palette',font=('Edit Undo BRK',18)),sg.InputText(key='Base Palette Path',size=25),sg.FileBrowse(key='Base Palette Browse',initial_folder=settings['Mugen Folder'],file_types=(('Act Files','*.act'),))],
                  [sg.Text('Palette Files',font=('Edit Undo BRK',18)),sg.InputText(key='Palette Files Path',size=25),sg.FilesBrowse(key='Palette Files Browse',initial_folder=settings['Mugen Folder'],file_types=(('Act Files','*.act'),))],
@@ -1095,12 +1063,10 @@ ce_layout = [[sg.Text('Scale-X'),sg.Input(default_text='1',key='Scale-X',size=5)
              [sg.Column(ce_entity,key='CE Entity Layout',element_justification='c'),
               sg.Column(ce_template,key='CE Template Layout',element_justification='c', visible=False)],
              [sg.Text('Sprite Folder',font=('Edit Undo BRK',18)),sg.InputText(key='Sprite Folder Path',size=25),sg.FolderBrowse(key='sprite_folder_browse',initial_folder=settings['Fraymakers Folder'])],
+             [sg.Text('FFE File Path',font=('Edit Undo BRK',18)),sg.InputText(key='ffe_file_path',size=25),sg.FileBrowse(key='ffe_file_browse',initial_folder=settings['Fraymakers Folder'],file_types=(('FFE Files','*.ffe'),))],
              [sg.Text('Project Folder',font=('Edit Undo BRK',18)),sg.InputText(key='Project Folder Path',size=25),sg.FolderBrowse(key='project_folder_browse',initial_folder=settings['Fraymakers Folder'])],
              [sg.Checkbox('Hitboxes',default=True,key='Hitboxes Check'),sg.Checkbox('Hurtboxes',default=True,key='Hurtboxes Check')],
-             [sg.Checkbox('Import Palettes',default=True,key='Import Palettes',enable_events=True)],
-             [sg.Checkbox('Sprites Not-Aligned',default=True,key='unaligned_check',enable_events=True)],
-             [sg.Text('FFE File Path',font=('Edit Undo BRK',18)),sg.InputText(key='ffe_file_path',size=25),sg.FileBrowse(key='ffe_file_browse',initial_folder=settings['Fraymakers Folder'],file_types=(('FFE Files','*.ffe'),))],
-             #[sg.Checkbox('Trim Sprites',default=False,key='Trim Sprites'), sg.Checkbox('Only Include Animation Sprites',default=False,key='Animation Sprites')],
+             [sg.Checkbox('Import Palettes',default=True,key='Import Palettes',enable_events=True)],        
              [sg.Frame("Palette Frame",palette_frame,key='palette_frame')],
              [sg.Button('Submit',key='submit ce')]]
 
@@ -1126,7 +1092,8 @@ roa_frame = [[]]
 
 start_layout = [[sg.Checkbox('Folder',default=True,key='folder_import',enable_events=True),
                  sg.Checkbox('Mugen',default=False,key='mugen_import',enable_events=True,disabled=True),
-                 sg.Checkbox('ROA',default=False,key='roa_import',enable_events=True,disabled=True,visible=False)],
+                 sg.Checkbox('ROA',default=False,key='roa_import',enable_events=True,disabled=True,visible=False),
+                 sg.Checkbox('Aseprite',default=False,key='aseprite_import',enable_events=True,disabled=True)],
                 [sg.Checkbox('New Project',default=False,key='new_project',enable_events=True),
                  sg.Checkbox('Palette Only',default=False,key='only_palette',enable_events=True,visible=False)],
                 [sg.Frame('Folder Import',folder_frame,key='folder_frame'),
@@ -1144,10 +1111,10 @@ settings_layout =[[sg.Text('Mugen Folder',font=('Edit Undo BRK',18)),
                   [sg.Button('Save',key='settings_save'),sg.Button('Exit',key='settings_exit')]]
 
 
-layout = [[sg.Text('Fraytools Anim Importer V.91', justification='center',font=('Centie Sans',26))],
+layout = [[sg.Text('Fraytools Anim Importer V.95', justification='center',font=('Centie Sans',26))],
           [sg.Column(start_layout, key='Start Layout', element_justification='c'),
            sg.Column(settings_layout, key='Settings Layout', element_justification='c', visible=False),
-           sg.Column(anim_name_layout, key='Anim Name Layout', element_justification='c', visible=False),
+           sg.Column(anim_layout, key='Anim Layout', element_justification='c',visible=False),
            sg.Column(ce_layout, key='CE Layout', element_justification='c', visible=False),
            sg.Column(folder_ce_layout, key='Folder CE Layout', element_justification='c', visible=False),
            sg.Column(new_folder_ce_layout, key='Folder New CE Layout', element_justification='c', visible=False)]]
@@ -1178,10 +1145,9 @@ while True:
                 anim_indexes, anim_lines = getAnimations(mugen_air)
                 anim_layout= makeAnimRenamer(anim_indexes,['Animation Number','Animation Name','Line Start in File','Type','Type Data','Invert'])
                 window.extend_layout(window['Anim Layout'],anim_layout)
-                update_name_tracker(anim_indexes)
                 if values['new_project'] == False:
                     sg.popup('Please backup your entire Character folder before proceeding!')
-                window['Anim Name Layout'].update(visible = True)
+                window['Anim Layout'].update(visible = True)
             
 
         elif values['folder_import'] == True:
@@ -1191,10 +1157,9 @@ while True:
                 anim_indexes = getFolderAnims(folder_path)
                 anim_layout= makeAnimRenamer(anim_indexes,['Animation Number','Animation Name','OG Folder','Type','Type Data','Invert'])
                 window.extend_layout(window['Anim Layout'],anim_layout)
-                update_name_tracker(anim_indexes)
                 if values['new_project'] == False:
                     sg.popup('Please backup your entire Character folder before proceeding!')
-                window['Anim Name Layout'].update(visible = True)
+                window['Anim Layout'].update(visible = True)
         
 
     elif event == 'settings':
@@ -1213,22 +1178,26 @@ while True:
     elif event == 'settings_exit':
         update_visibility({'Start Layout':True,'Settings Layout':False})
 
+    ## Handles the checkboxes on the main screen
     elif 'import' in event:
         if values['folder_import'] == True:
             update_visibility({'folder_frame':True})
-            update_disabled({'mugen_import':True,'roa_import':True,'go':False})
+            update_disabled({'mugen_import':True,'roa_import':True,'aseprite_import':True,'go':False})
         elif values['mugen_import'] == True:
             update_visibility({'mugen_frame':True,'only_palette':True})
             #window['mugen_frame'].update(visible=True)
-            update_disabled({'folder_import':True,'roa_import':True,'go':False})
+            update_disabled({'folder_import':True,'roa_import':True,'aseprite_import':True,'go':False})
         elif values['roa_import'] == True:
             window['roa_frame'].update(visible=True)
-            update_disabled({'folder_import':True,'mugen_import':True,'go':False})
+            update_disabled({'folder_import':True,'mugen_import':True,'aseprite_import':True,'go':False})
+        elif values['aseprite_import'] == True:
+            window['aseprite_frame'].update(visible=True)
+            update_disabled({'folder_import':True,'mugen_import':True,'aseprite_import':False,'go':False,})
         else:
             hide_frame = event.split('_')[0]
             window[hide_frame+'_frame'].update(visible=False)
             update_visibility({'only_palette':False})
-            update_disabled({'folder_import':False,'mugen_import':False,'roa_import':False,'go':True})
+            update_disabled({'folder_import':False,'mugen_import':False,'roa_import':False, 'aseprite_import':False, 'go':True})
 
     elif event == 'only_palette':
         if values['only_palette'] == True:
@@ -1245,7 +1214,7 @@ while True:
         
         if len(selected_index) != 0 :
             if len(selected_index) > 1:
-                update_disabled({'delete_row':False,'copy_row':False,'edit_name':True,'move_up':True,'move_down':True,'combine':False,'invert':False,
+                update_disabled({'keep_row':False,'delete_row':False,'copy_row':False,'edit_name':True,'move_up':True,'move_down':True,'combine':False,'invert':False,
                                  'type_Character':False,'type_Projectile':False,'type_Vfx':False,'edit_type_data':False,})
             else:
                 selected_index = selected_index[0]
@@ -1256,10 +1225,10 @@ while True:
                 else:
                     update_disabled({'move_up':False,'move_down':False})
                     
-                update_disabled({'delete_row':False,'copy_row':False,'edit_name':False,'combine':True,'invert':False,
+                update_disabled({'keep_row':True,'delete_row':False,'copy_row':False,'edit_name':False,'combine':True,'invert':False,
                                  'type_Character':False,'type_Projectile':False,'type_Vfx':False,'edit_type_data':False})
         else:
-            update_disabled({'delete_row':True,'copy_row':True,'edit_name':True,'move_up':True,'move_down':True,'combine':True,'invert':True,
+            update_disabled({'keep_row':True,'delete_row':True,'copy_row':True,'edit_name':True,'move_up':True,'move_down':True,'combine':True,'invert':True,
                                  'type_Character':True,'type_Projectile':True,'type_Vfx':True,'edit_type_data':True})
 
     elif event == 'edit_name':
@@ -1267,7 +1236,6 @@ while True:
         #print(new_name)
 
         anim_indexes[selected_index][1] = new_name
-        update_name_tracker(anim_indexes)
         update_table(anim_indexes,selected_index)
 
     elif event == 'copy_row':
@@ -1278,6 +1246,15 @@ while True:
         
         anim_indexes.insert(selected_index, new_data)
         update_table(anim_indexes,selected_index)
+
+    elif event == 'keep_row':
+        anims = selected_row
+        print(anims)
+        print(anim_indexes)
+        print(selected_index)
+        anim_indexes = selected_row
+        update_table(anim_indexes,-1)
+        print(anims)
 
     elif event == 'delete_row':
         anim_indexes.pop(selected_index)
@@ -1401,7 +1378,7 @@ while True:
             
             if len(dup_names) == 0:
                 if values['mugen_import'] == True:
-                    update_visibility({'Anim Layout':False,'CE Layout':True,'Anim Name Layout':False})
+                    update_visibility({'Anim Layout':False,'CE Layout':True,'Anim Layout':False})
                     if values['new_project'] == True:
                         update_visibility({'CE Entity Layout':False, 'CE Template Layout':True})
                         update_disabled({'Costumes File Path':True, 'Costumes File Browse':True})
@@ -1409,9 +1386,9 @@ while True:
                         update_visibility({'CE Entity Layout':True, 'CE Template Layout':False})
                 elif values['folder_import'] == True:
                     if values['new_project'] == True:
-                        update_visibility({'Anim Layout':False,'Folder New CE Layout':True,'Anim Name Layout':False})
+                        update_visibility({'Anim Layout':False,'Folder New CE Layout':True,'Anim Layout':False})
                     else:
-                        update_visibility({'Anim Layout':False,'Folder CE Layout':True,'Anim Name Layout':False})
+                        update_visibility({'Anim Layout':False,'Folder CE Layout':True,'Anim Layout':False})
 
                 writeAnimIndexes(anim_indexes,os.path.join('Files','System','Backup Anims.json'))
             else:
@@ -1454,8 +1431,7 @@ while True:
                     newImageSymbols(folder_path)
                     char_entity = os.path.join(values['Project Folder Path'],'library','entities','character.entity')
                     ce_data = getJSONData(char_entity)
-                    #if values['Trim Sprites'] == True:
-                    #    trimSprites(folder_path)
+                    
                     sprite_data, sprite_data_keys, image_align_x, image_align_y, sprite_names = getSpriteData(folder_path)
                     
                 else:
@@ -1464,7 +1440,9 @@ while True:
                 checks = True
                 if checkFile(values['Character Entity Path']) == True and checkFolder(values['Sprite Folder Path']) == True:
                     ce_data = getJSONData(values['Character Entity Path'])
-                    sprite_data, sprite_data_keys, image_align_x, image_align_y, sprite_names = getSpriteData(values['Sprite Folder Path'])
+                    #sprite_data, sprite_data_keys, image_align_x, image_align_y, sprite_names = getSpriteData(values['Sprite Folder Path'])
+                    folder_path = os.path.join(values['Project Folder Path'],'library','sprites')
+                    sprite_data, sprite_data_keys, image_align_x, image_align_y, sprite_names = getSpriteData(folder_path)
                 else:
                     checks = False
 
@@ -1477,79 +1455,44 @@ while True:
                         if p[4] not in projectiles:
                             projectiles.append(p[4])
 
-                #print(projectiles)
                 projectile_data = []
                 for p in projectiles:
                     p_data = createProjectile(p, values['Project Folder Path'])
                     projectile_data.append(p_data)
                 
-                #print(projectiles)
-
+                groups = list(set([int(x.split('-')[0]) for x in sprite_data_keys if len(x.split('-')) > 1]))
+                ffe_data = readFFE(values['ffe_file_path'],groups)
                 
-                    
+                sprite_names.extend(ffe_data.keys())
+                print(sprite_names)
                 
-                if values["unaligned_check"] == True:
+                anim_data = getAnimData(anim_indexes, anim_lines, sprite_names, hurt_check, hit_check)
+                
+                for a in anim_data:
                     
-                    groups = list(set([int(x.split('-')[0]) for x in sprite_data_keys if len(x.split('-')) > 1]))
+                    names = anim_data[a]['sprite_names']
+                    sprite_poses = anim_data[a]['sprite_pos']
+                    anim_data[a]['old_sprite_pos'] = sprite_poses
+                    new_names = []
+                    sprite_pos = []
+                    for n,s in zip(names,sprite_poses):
+                        if n in ffe_data.keys():
+                            if a == 'special_side':
+                                print(n)
+                                print(ffe_data[n])
+                                print(s['X'],s['Y'])
+                            new_names.append(ffe_data[n]['Sprite Name'])
+                            sprite_pos.append({'X':(ffe_data[n]['X'])+s['X'],'Y':(ffe_data[n]['Y'])+s['Y']})
+                        else:
+                            new_names.append(None)
+                            sprite_pos.append({'X':0,'Y':0})
                     
-                    ffe_data,invalid_names = readFFE(values['ffe_file_path'],groups)
-                    sprite_names.extend(invalid_names.keys())
-                    #print(sprite_names)
-                    
-                    anim_data = getAnimData(anim_indexes, anim_lines, sprite_names, hurt_check, hit_check)
-                    
-                    
-                    
-                    for a in anim_data:
+                    anim_data[a]['sprite_names'] = new_names
+                    anim_data[a]['sprite_pos'] = sprite_pos
                         
-                        temp_names = anim_data[a]['sprite_names']
+                image_align_x = 0
+                image_align_y = 0
                         
-                        clean_names = []
-                        for n in temp_names:
-                            name_check = False
-                            for invalid in invalid_names.keys():
-                                if n == invalid:
-                                    name_check = True
-                                    clean_names.append(invalid_names[n])
-                                    
-
-                            if name_check == False:
-                                clean_names.append(n)
-
-                                
-                        new_names = []
-                        for t in clean_names:
-                            if t != None:
-                                new_names.append(t.replace('.meta',''))
-                            else:
-                                new_names.append('None')
-
-                        
-                        #sprite_pos = getSpritePosList(folder_path,new_names)
-                        sprite_pos = getSpritePosFFE(new_names,ffe_data)
-
-                        final_names = []
-                        for n in new_names:
-                            
-                            if n != 'None':
-                                final_names.append(n+'.meta')
-                            else:
-                                final_names.append(None)
-                                
-                        print(final_names)
-                        anim_data[a]['sprite_names'] = final_names
-                        anim_data[a]['sprite_pos'] = sprite_pos
-                        
-                    image_align_x = 0
-                    image_align_y = 0
-                        
-                        
-                        
-                #print(anim_data)
-                    
-                else:
-                    anim_data = getAnimData(anim_indexes, anim_lines, sprite_names, hurt_check, hit_check)
-                    
                 ce_data, projectile_data = editCE(ce_data,anim_data,sprite_data,sprite_data_keys,float(values['Scale-X']),float(values['Scale-Y']),image_align_x,image_align_y, projectile_data)
                 
                 if values['new_project'] == True:
