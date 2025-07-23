@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hitbox Editor</title>
+  <style>
+    :root {
+      --bg: #f4f4f9;
+      --fg: #000;
+      --card-bg: #fff;
+      --highlight: #eef1f8;
+      --advanced-bg: #dce1ec;
+      --pre-bg: #eee;
+      --input-bg: #fff;
+      --input-fg: #000;
+    }
+
+    body.dark {
+      --bg: #1e1e2f;
+      --fg: #eee;
+      --card-bg: #2c2c3a;
+      --highlight: #3a3a4a;
+      --advanced-bg: #444;
+      --pre-bg: #333;
+      --input-bg: #555;
+      --input-fg: #fff;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      padding: 2rem;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .move-container {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2, h3 {
+      margin-top: 0;
+    }
+    .hitbox {
+      padding: 0.5rem;
+      border-left: 4px solid #007BFF;
+      margin: 0.5rem 0;
+      background: var(--highlight);
+      border-radius: 5px;
+    }
+    .stat-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .stat {
+      display: flex;
+      flex-direction: column;
+      min-width: 8rem;
+    }
+    label {
+      font-weight: bold;
+      margin-bottom: 0.2rem;
+    }
+    input[type="number"], input[type="text"], select {
+      padding: 0.3rem;
+      width: 100%;
+      background: var(--input-bg);
+      color: var(--input-fg);
+      border: 1px solid #999;
+      border-radius: 4px;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .advanced {
+      background: var(--advanced-bg);
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      border-radius: 5px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .advanced .stat {
+      min-width: 8rem;
+    }
+    .toggle-button {
+      background: #007BFF;
+      color: white;
+      margin-top: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .theme-toggle {
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+    pre {
+      background: var(--pre-bg);
+      padding: 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()">Toggle Dark Mode</button>
+  <h1>Hitbox Editor</h1>
+  <div id="editor"></div>
+  <button onclick="saveChanges()">Save Changes</button>
+  <h2>Resulting Payload</h2>
+  <pre id="output"></pre>
+
+  <script>
+    const data = {
+      master: {
+        hitbox0: {
+          absorbable: false, angle: 0.00, attackId: 0, attackRatio: 1.00, attackStrength: 0, baseKnockback: 0.00,
+          bodyX: 0.00, bodyY: 0.00, damage: 0.00, directionalInfluence: true, disabled: false, element: null,
+          flinch: true, forceTumbleFall: false, hitEffectOverride: 'VFX', hitSoundOverride: 'SFX', hitstop: -1,
+          hitstopMultiplier: 1.00, hitstopNudgeMultiplier: 1.00, hitstopOffset: 0, hitstun: -1, index: -1,
+          jabResetType: 'AUTO', knockbackCap: -1.00, knockbackGrowth: 0.00, limb: null, maxChargeDamageMultiplier: 1.00,
+          metadata: null, owner: null, rawAngle: 0.00, rawDamage: 0.00, reflectable: false, reverse: false,
+          reversibleAngle: true, selfHitstop: -1, selfHitstopOffset: 0, shieldDamageMultiplier: 1.00,
+          shieldable: true, shieldstunMultiplier: 1.00, stackKnockback: true, tumbleType: 'AUTO'
+        }
+      }
+    };
+
+    const importantProps = [
+      'damage', 'angle', 'baseKnockback', 'knockbackGrowth', 'hitstop', 'hitstopMultiplier', 'hitstopOffset',
+      'hitstun', 'selfHitstop', 'selfHitstopOffset'
+    ];
+
+    function createEditor(data) {
+      const container = document.getElementById('editor');
+      container.innerHTML = '';
+
+      for (const move in data) {
+        const moveDiv = document.createElement('div');
+        moveDiv.className = 'move-container';
+
+        const title = document.createElement('h2');
+        title.textContent = move;
+        moveDiv.appendChild(title);
+
+        for (const hitbox in data[move]) {
+          const box = document.createElement('div');
+          box.className = 'hitbox';
+          box.innerHTML = `<h3>${hitbox}</h3>`;
+
+          const statRow = document.createElement('div');
+          statRow.className = 'stat-row';
+
+          for (const prop in data[move][hitbox]) {
+            if (importantProps.includes(prop)) {
+              const stat = document.createElement('div');
+              stat.className = 'stat';
+              const label = document.createElement('label');
+              label.textContent = prop;
+              let input;
+              const val = data[move][hitbox][prop];
+              if (typeof val === 'boolean') {
+                input = document.createElement('select');
+                ['true', 'false'].forEach(optVal => {
+                  const option = document.createElement('option');
+                  option.value = optVal;
+                  option.textContent = optVal;
+                  if (String(val) === optVal) option.selected = true;
+                  input.appendChild(option);
+                });
+              } else {
+                input = document.createElement('input');
+                input.type = 'number';
+                input.value = val;
+              }
+              input.dataset.move = move;
+              input.dataset.hitbox = hitbox;
+              input.dataset.prop = prop;
+              stat.appendChild(label);
+              stat.appendChild(input);
+              statRow.appendChild(stat);
+            }
+          }
+
+          box.appendChild(statRow);
+
+          const toggleBtn = document.createElement('button');
+          toggleBtn.className = 'toggle-button';
+          toggleBtn.innerText = 'Show Advanced';
+
+          const advancedDiv = document.createElement('div');
+          advancedDiv.className = 'advanced';
+
+          for (const prop in data[move][hitbox]) {
+            if (!importantProps.includes(prop)) {
+              const stat = document.createElement('div');
+              stat.className = 'stat';
+              const label = document.createElement('label');
+              label.textContent = prop;
+              let input;
+              const val = data[move][hitbox][prop];
+              if (typeof val === 'boolean') {
+                input = document.createElement('select');
+                ['true', 'false'].forEach(optVal => {
+                  const option = document.createElement('option');
+                  option.value = optVal;
+                  option.textContent = optVal;
+                  if (String(val) === optVal) option.selected = true;
+                  input.appendChild(option);
+                });
+              } else {
+                input = document.createElement('input');
+                input.type = typeof val === 'number' ? 'number' : 'text';
+                input.value = val;
+              }
+              input.dataset.move = move;
+              input.dataset.hitbox = hitbox;
+              input.dataset.prop = prop;
+              stat.appendChild(label);
+              stat.appendChild(input);
+              advancedDiv.appendChild(stat);
+            }
+          }
+
+          toggleBtn.onclick = () => {
+            advancedDiv.style.display = advancedDiv.style.display === 'none' ? 'flex' : 'none';
+            toggleBtn.innerText = advancedDiv.style.display === 'none' ? 'Show Advanced' : 'Hide Advanced';
+          };
+
+          advancedDiv.style.display = 'none';
+          box.appendChild(toggleBtn);
+          box.appendChild(advancedDiv);
+          moveDiv.appendChild(box);
+        }
+
+        container.appendChild(moveDiv);
+      }
+    }
+
+    function saveChanges() {
+      const inputs = document.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        const move = input.dataset.move;
+        const hitbox = input.dataset.hitbox;
+        const prop = input.dataset.prop;
+        let val = input.value;
+        if (val === 'true') val = true;
+        else if (val === 'false') val = false;
+        else if (!isNaN(val) && val.trim() !== '') val = parseFloat(val);
+        data[move][hitbox][prop] = val;
+      });
+      document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+
+    createEditor(data);
+    saveChanges();
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "export": true,
+  "guid": "46193dfe-8522-463b-914c-fcfadb4b7059",
+  "id": "mugenAnimationStats",
+  "language": "hscript",
+  "pluginMetadata": {
+    "com.fraymakers.FraymakersMetadata": {
+      "version": "0.3.0"
+    }
+  },
+  "plugins": [
+    "com.fraymakers.FraymakersMetadata"
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

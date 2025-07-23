@@ -1,0 +1,18 @@
+{
+  "export": true,
+  "guid": "af0dfbdf-c8c5-4c03-8e10-824961128a15",
+  "id": "mugenScript",
+  "language": "hscript",
+  "pluginMetadata": {
+    "com.fraymakers.FraymakersMetadata": {
+      "objectType": "CHARACTER",
+      "version": "0.3.0"
+    }
+  },
+  "plugins": [
+    "com.fraymakers.FraymakersMetadata"
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

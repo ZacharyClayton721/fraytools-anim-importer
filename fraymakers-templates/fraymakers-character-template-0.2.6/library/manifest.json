@@ -1,0 +1,63 @@
+{
+  "resourceId": "charactertemplate",
+  "content": [{
+    "id": "charactertemplate",
+    "name": "Fraynkie",
+    "description": "Just a sweet little baby",
+    "type": "character",
+    "objectStatsId": "charactertemplateCharacterStats",
+    "animationStatsId": "charactertemplateAnimationStats",
+    "hitboxStatsId": "charactertemplateHitboxStats",
+    "scriptId": "charactertemplateScript",
+    "costumesId": "charactertemplateCostumes",
+    "aiId": "charactertemplateAi",
+    "metadata": {
+      "ui":{
+        "entityId":"menu",
+        "render":{
+          "animation":"full",
+          "animation_icon":"icon",
+          "animation_icon_no_palette":"icon_no_palette",
+          "x_offset":0,
+          "y_offset":38,
+          "x_offset_door": 0,
+          "y_offset_door": 0,
+          "x_offset_door_ffa": 0,
+          "y_offset_door_ffa": 0
+        },
+        "hud":{
+          "animation":"hud",
+          "animation_front": "hud_front",
+          "animation_happy":"hud_happy",
+          "animation_happy_front":"hud_happy_front",
+          "animation_sad":"hud_sad",
+          "animation_sad_front":"hud_sad_front",
+          "animation_angry":"hud_angry",
+          "animation_angry_front":"hud_angry_front",
+          "animation_hurt":"hud_hurt",
+          "animation_hurt_front":"hud_hurt_front",
+          "animation_stock_icon": "stock"
+        },
+        "css":{
+          "animation":"css",
+          "info":{
+            "game":"Fraymakers (Early Access)",
+            "description":"Just a sweet little baby."
+          }
+        }
+      }
+    }
+  },{
+    "id": "charactertemplateAi",
+    "type": "characterAi",
+    "scriptId": "charactertemplateAiScript"
+  },{
+    "id": "characterTemplateNspecProjectile",
+    "type": "projectile",
+    "objectStatsId": "charactertemplateNspecProjectileStats",
+    "animationStatsId": "charactertemplateNspecProjectileAnimationStats",
+    "hitboxStatsId": "charactertemplateNspecProjectileHitboxStats",
+    "scriptId": "charactertemplateNspecProjectileScript",
+    "costumesId": "charactertemplateCostumes"
+  }]
+}

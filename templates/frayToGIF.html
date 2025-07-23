@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Fray to GIF</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200..800&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+        
+        <style>
+            body {
+                background: #EBE9E9;
+                margin:0;
+                padding:0;
+            }
+            
+            .header {
+                font-family: "Roboto Condensed", sans-serif;
+                font-weight: 400;
+                text-align: center;
+                font-size: 40px;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .subheader {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 24px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptContainer {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+            }
+            
+            .projectPrompt {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                border: solid black 3px;
+                border-radius: 5px;
+                width: 50%;
+            }
+            
+            .projectPromptMessage {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 20px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptFiles {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptButton {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+                
+            }
+            
+            .hide {
+                display: none;
+            }
+            
+            .dropdownContainer {
+                width: 60%;
+                margin: auto;
+                font-family: "Assistant", sans-serif;
+            }
+
+            .dropdown {
+                background-color: #fff;
+                border: 2px solid #444;
+                border-radius: 6px;
+                margin: 10px 0;
+                overflow: hidden;
+            }
+
+            .dropdownHeader {
+                background-color: #ccc;
+                padding: 12px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+
+            .dropdownContent {
+                display: none;
+                padding: 10px;
+                border-top: 1px solid #444;
+                background-color: #f9f9f9;
+            }
+
+            .dropdownContent ul {
+                list-style-type: none;
+                margin: 0;
+                padding: 0;
+            }
+
+            .dropdownContent li {
+                padding: 10px;
+                cursor: pointer;
+                border-bottom: 1px solid #ddd;
+                transition: background-color 0.2s;
+            }
+
+            .dropdownContent li:nth-child(odd) {
+                background-color: #f1f1f1;
+            }
+
+            .dropdownContent li:nth-child(even) {
+                background-color: #ffffff;
+            }
+
+            .dropdownContent li:hover {
+                background-color: #e0e0e0;
+            }
+            
+            .popup {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+
+            .popupContent {
+                background-color: white;
+                padding: 30px;
+                border-radius: 12px;
+                position: relative;
+                width: 300px;
+                text-align: center;
+                font-family: "Assistant", sans-serif;
+            }
+
+            .closeBtn {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            #renderBtn {
+                padding: 10px 20px;
+                margin-top: 20px;
+                font-size: 16px;
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+
+            #renderBtn:hover {
+                background-color: #45a049;
+            }
+            
+            .preview {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center; 
+            }
+            
+            .download {
+                padding: 10px 20px;
+                margin-top: 20px;
+                font-size: 16px;
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+            
+            
+        </style>
+    </head>
+    <body>
+        
+        <h1 class='header'>Fray To GIF</h1>
+        <h2 class='subheader'>Converts Fray animations to a GIF</h2>
+        <div id='projectPromptView' class='projectPromptContainer'>
+            
+            <div class='projectPrompt'>
+                <p class='projectPromptMessage'>Upload Project Files</p>
+                <input type="file" id="folderInput" webkitdirectory multiple onchange="uploadFolder(event)"/>
+                <br>
+            </div>
+            <br>
+        </div>
+        <br>
+        <div id="animationDropdowns" class="dropdownContainer"></div>
+        
+        <div id="animationPopup" class="popup hidden">
+            <div class="popupContent">
+                <button class="closeBtn" onclick="closePopup()">✕</button>
+                <h2 id="popupTitle">Animation Name</h2>
+                <div id='preview' class='preview hidden'></div>
+                <button id="renderBtn" onclick="renderToGIF()">Render to GIF</button>
+            </div>
+        </div>
+
+<script>
+    
+    var projectFiles = null;
+    var animationNames = null;
+
+    async function uploadFolder(event) {
+        const files = event.target.files;
+        
+        var chunkSize = 100;
+        
+        const filesArray = Array.from(files);  // Convert FileList to an array
+    
+        let chunkedFiles = [];
+    
+        // Split the files into chunks
+        for (let i = 0; i < filesArray.length; i += chunkSize) {
+            chunkedFiles.push(filesArray.slice(i, i + chunkSize));  
+    }
+        
+        for (let chunk of chunkedFiles) {
+            const formData = new FormData();
+
+            // Add all files in the current chunk to the formData
+            chunk.forEach(file => {
+                formData.append('files', file);
+                formData.append('file_paths', file.webkitRelativePath);  // Add the relative path as a separate field
+            });
+        
+            // Include the total file count in the request (so the server knows when to return the final result)
+            formData.append('total_files', files.length);
+
+            try {
+                const response = await fetch('/getAnimationNames', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result['status'] == 'Upload Complete') {
+                    //projectFiles = result['ProjectFiles'];
+                    animationNames = result['AnimationNames'];
+                    //console.log(projectFiles);
+                    console.log(animationNames);
+                    console.log(animationNames['character.entity']);
+                    document.getElementById('projectPromptView').classList.add('hide');
+                    renderDropdowns(animationNames);
+                }
+                
+
+            } catch (err) {
+                console.error('Upload failed:', err);
+            }
+        }
+        
+    }
+    
+    function renderDropdowns(animationData) {
+        const container = document.getElementById('animationDropdowns');
+        container.innerHTML = ''; // Clear previous content
+
+        for (const file in animationData) {
+            const animations = animationData[file];
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'dropdown';
+
+            const content = document.createElement('div');
+            content.className = 'dropdownContent';
+            content.style.display = 'none';
+
+            const header = document.createElement('div');
+            header.className = 'dropdownHeader';
+            header.textContent = file;
+
+            // Now that `content` exists, this will work correctly
+            header.onclick = () => {
+                content.style.display = content.style.display === 'none' ? 'block' : 'none';
+            };
+
+            const list = document.createElement('ul');
+            for (const animName of animations) {
+                const item = document.createElement('li');
+                item.textContent = animName;
+                item.onclick = () => {
+                    showPopup(animName, file);
+                };
+                list.appendChild(item);
+            }
+
+            content.appendChild(list);
+            dropdown.appendChild(header);
+            dropdown.appendChild(content);
+            container.appendChild(dropdown);
+        }
+    }
+    
+    function showPopup(animationName, fileName) {
+        document.getElementById('popupTitle').textContent = `${fileName} - ${animationName}`;
+        document.getElementById('animationPopup').classList.remove('hidden');
+
+        // Save current animation for render function
+        window.selectedAnimation = { animation: animationName, file: fileName };
+    }
+
+    function closePopup() {
+        document.getElementById('animationPopup').classList.add('hidden');
+        document.getElementById('renderBtn').classList.remove('hidden');
+        const preview = document.getElementById('preview');
+        preview.innerHTML = '';
+        preview.classList.add('hidden');
+    }
+
+    async function renderToGIF() {
+        const { animation, file } = window.selectedAnimation;
+        console.log(`Render to GIF: ${file} > ${animation}`);
+
+        // Replace this with your actual rendering request logic
+        const response = await fetch('/generateGIF', {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            method: 'POST',
+            body: JSON.stringify({
+                entityName: file,
+                animationName: animation
+            })
+        });
+        
+        const result = await response.json();
+        console.log(result);
+        
+        const link = document.createElement('a');
+        link.href = `data:image/gif;base64,${result['data']}`;
+        link.download = result['name'];
+        link.id = 'downloadLink';
+        link.classList.add('hidden');
+        //link.innerText = 'Download GIF';
+        
+        const img = document.createElement('img');
+        img.src = `data:image/webp;base64,${result['preview']}`;
+        img.id = 'downloadImg';
+        
+        const button = document.createElement('button');
+        button.innerText = 'Download GIF';
+        button.classList.add('download');
+        button.id = 'downloadButton';
+        
+        button.onclick = () => {
+            document.getElementById('downloadLink').click();
+        };
+        
+        document.getElementById('renderBtn').classList.add('hidden');
+        var previewWindow = document.getElementById('preview');
+        previewWindow.classList.remove('hidden');
+        previewWindow.appendChild(link);
+        previewWindow.appendChild(img);
+        previewWindow.appendChild(button);
+        
+    }
+</script>
+
+    
+    </body>
+</html>

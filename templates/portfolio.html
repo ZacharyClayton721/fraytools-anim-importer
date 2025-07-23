@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Diamond a Day</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+    <style>
+        
+        body {
+            background: #EBE9E9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        
+        .customHeaderContainer {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+        }
+        
+        .customHeaderImage {
+            margin-left: 20px;
+            margin-right: 20px;
+            height: 100px;
+        }
+        
+        .customHeader {
+            text-align: center;
+            padding: 0;
+            margin:0;
+        }
+        
+        .slider-container {
+            width: 300px;
+            margin: auto;
+        }
+        .carat-display {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+            margin: auto;
+            align-items: center;
+        }
+        .slider-labels input {
+            width: 50px;
+            text-align: center;
+        }
+        #caratSlider {
+            margin: 20px auto;
+        }
+        
+        .storeContainer {
+            display:flex;
+            flex-direction: column;
+            justify-content: left;
+            align-items: left;
+        }
+        
+        .storeRow {
+            display: flex;
+            flex-direction: row;
+        }
+        
+        .storeRow label {
+            width: 100px;
+        }
+        
+        .storeHeader {
+            padding:0;
+            margin: 0;
+        }
+        
+        #tableHead {
+            background: #3581B8;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .even {
+            background-color: #F3F8F2; /* Light gray */
+        }
+        
+        .odd {
+            background-color: #DEE2D6;
+        }
+        
+        .dropdown-container {
+  position: relative;
+  width: 300px;
+  font-family: sans-serif;
+}
+
+.multi-dropdown {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.dropdown-list {
+  position: absolute;
+  width: 100%;
+  max-height: 250px;
+  margin-top: 4px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+.dropdown-item input[type="checkbox"] {
+  cursor: pointer;
+}
+        
+        .dropdown-form {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-evenly;
+        }
+        
+        .dropdown-column {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .dropdown-text {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            padding:0;
+            margin:0;
+        }
+        
+        .priceContainer {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .priceShow {
+            font-size: 24px;
+            font-weight: bold;
+            margin-left: 5px;
+            margin-right: 5px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class='customHeaderContainer'>
+        <img class='customHeaderImage' src="{{ url_for('static', filename='images/Diamond1.jpg') }}" alt="Diamond1">
+        <h2 class=customHeader>The Diamond a Day</h2>
+        <img class='customHeaderImage' src="{{ url_for('static', filename='images/Diamond2.jpg') }}" alt="Diamond2">
+    </div>
+    
+    
+    <br><br>
+    
+    <div class="slider-container">
+        <div id="caratSlider"></div>
+        <div class="slider-labels">
+            <input type="number" id="minValue" value="1.30" step="0.01" onfocusout="updateSliderRange()"> ct
+            <input type="number" id="maxValue" value="2" step="0.01" onfocusout="updateSliderRange()"> ct
+        </div>
+        <div class="carat-display" id="caratSize">1.30 ct - 2.00 ct</div>
+    </div>
+
+    <div class='dropdown-form'>
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Clarity</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Clarity' data-options='["SI2","SI1","VS2","VS1","VVS2","VVS1", "IF", "FL"]' placeholder="Select options..." readonly value='SI2, SI1, VS2, VS1, VVS2, VVS1'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Color</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Color' data-options='["D","E","F"]' placeholder="Select options..." readonly value='D, E, F'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Website</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Website' data-options='["Jared","Brilliance","Blue Nile","James Allen"]' placeholder="Select options..." readonly value='Jared, Brilliance, Blue Nile, James Allen'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+        
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Cut</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Cut' data-options='["Good","Very Good","Ideal","Super Ideal"]' placeholder="Select options..." readonly value='Good, Very Good, Ideal, Super Ideal'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+    </div>
+    <br>
+    <div class='dropdown-form'>
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Fluoresence</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='FlourFullName' data-options='["Medium","Faint","None"]' placeholder="Select options..." readonly value='Medium, Faint, Strong'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+        
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Symmetry</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Symmetry' data-options='["Good","Very Good","Excellent"]' placeholder="Select options..." readonly value='Good, Very Good, Excellent'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+        
+        <div class='dropdown-column'>
+            <p class='dropdown-text'>Poslish</p>
+            <div class="dropdown-container">
+                <input type="text" class="multi-dropdown" id='Polish' data-options='["Good","Very Good","Excellent"]' placeholder="Select options..." readonly value='Good, Very Good, Excellent'/>
+                <div class="dropdown-list hidden"></div>
+            </div>
+        </div>
+    </div>
+    <br>
+    
+    <div class='priceContainer'>
+        <p class='priceShow'>Average Price:</p>
+        <p class='priceShow' id='averagePrice'>$12,657</p>
+    </div>
+    
+    <div class='priceContainer'>
+        <p class='priceShow'>Median Price:</p>
+        <p class='priceShow' id='medianPrice'>$12,657</p>
+    </div>
+    <br>
+    <table id="csvTable">
+        <thead>
+            <tr id="tableHead">
+                <td>Diamond ID</td>
+                <td>Diamond Link</td>
+                <td>Price</td>
+                <td>Carat</td>
+                <td>Price Per Carat</td>
+                <td>Price Per .01 Carat</td>
+                <td>Shape</td>
+                <td>Color</td>
+                <td>Clarity</td>
+                <td>Cut</td>
+                <td>Table Depth</td>
+                <td>Table Size</td>
+                <td>Flouresence</td>
+                <td>Girdle</td>
+                <td>Polish</td>
+                <td>Symmetry</td>
+                <td>Is Lab Diamond</td>
+                <td>Lab</td>
+                <td>Cert Number</td>
+                <td>Default Image</td>
+                <td>Website</td>
+                
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        
+        /* Slider Stuff */
+        let slider = document.getElementById('caratSlider');
+        let display = document.getElementById('caratSize');
+        let minInput = document.getElementById('minValue');
+        let maxInput = document.getElementById('maxValue');
+
+        noUiSlider.create(slider, {
+            start: [1.30, 2.00],
+            connect: true,
+            range: {
+                'min': 1.30,
+                'max': 2.00
+            },
+            step: 0.01
+        });
+
+        slider.noUiSlider.on('update', function(values) {
+            minInput.value = values[0];
+            maxInput.value = values[1];
+            display.textContent = values[0] + ' ct - ' + values[1] + ' ct';
+            fetchData();
+        });
+
+        function updateSliderRange() {
+            slider.noUiSlider.set([minInput.value, maxInput.value]); 
+        }
+        
+        var diamondData = null;
+        
+        async function fetchData() {
+
+            var payload = {
+                'Clarity':document.getElementById('Clarity').value.split(',').map(item => item.trim()),
+                'Color':document.getElementById('Color').value.split(',').map(item => item.trim()),
+                'Website':document.getElementById('Website').value.split(',').map(item => item.trim()),
+                'Cut':document.getElementById('Cut').value.split(',').map(item => item.trim()),
+                'FlourFullName':document.getElementById('FlourFullName').value.split(',').map(item => item.trim()),
+                'Symmetry':document.getElementById('Symmetry').value.split(',').map(item => item.trim()),
+                'Polish':document.getElementById('Polish').value.split(',').map(item => item.trim()),
+                'LowCarat':parseFloat(document.getElementById('minValue').value),
+                'HighCarat':parseFloat(document.getElementById('maxValue').value)
+            };
+	
+            const response = await fetch('/dataFilter', {
+  		        method: 'POST', // Method to send
+  		        headers: {
+   	                'Content-Type': 'application/json'
+                },
+  		        body: JSON.stringify(payload)
+	       });
+
+            const data = await response.json();
+            
+            var dData = data['Diamonds'];
+            
+            document.getElementById('averagePrice').innerHTML = data['Average'];
+            document.getElementById('medianPrice').innerHTML = data['Median'];
+            
+            var tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            var i = 1;
+            for (let d of dData) {
+                var newTr = document.createElement('tr');
+                if (i % 2 === 0) {
+                    newTr.classList.add('even');
+                } else {
+                    newTr.classList.add('odd');
+                }
+                var tempHTML = `<td>DiamondID</td>
+                <td>Diamond Link</td>
+                <td>Price</td>
+                <td>Carat</td>
+                <td>Price Per Carat</td>
+                <td>Price Per .01 Carat</td>
+                <td>Shape</td>
+                <td>Color</td>
+                <td>Clarity</td>
+                <td>Cut</td>
+                <td>TableDepth</td>
+                <td>TableSize</td>
+                <td>FlourFullName</td>
+                <td>Girdle</td>
+                <td>Polish</td>
+                <td>Symmetry</td>
+                <td>IsLabDiamond</td>
+                <td>Lab</td>
+                <td>CertNumber</td>
+                <td>DefaultImageLarge</td>
+                <td>Website</td>`;
+                Object.entries(d).forEach(([key, value]) => {
+                    
+                    if (key == 'Diamond Link') {
+                        tempHTML = tempHTML.replace(key,'<a href="'+value+'" target="_blank">'+value+'</a>');
+                        
+                    } else if (key == 'Cert Number') {
+                        if (value.includes('https')) {
+                            tempHTML = tempHTML.replace(key,'<a href="'+value+'" target="_blank">'+value+'</a>');
+                        }
+                        
+                    } else if (key == 'Default Image') {
+                        tempHTML = tempHTML.replace(key,'<img src="'+value+'">');
+                        
+                    } else if (!key.includes('Price')) {
+                        tempHTML = tempHTML.replace(key,value);
+                    
+                    } else {
+                        tempHTML = tempHTML.replace(key,new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value));
+                    }
+                    
+                });
+                newTr.innerHTML = tempHTML;
+                tbody.appendChild(newTr);
+                i += 1;
+            }
+            
+        }
+        
+        
+        function createMultiSelectDropdown(inputEl, onClose) {
+            const container = inputEl.closest('.dropdown-container');
+            const list = container.querySelector('.dropdown-list');
+            const options = JSON.parse(inputEl.dataset.options);
+            const selected = new Set(options);
+
+            function updateDisplay() {
+                inputEl.value = [...selected].join(', ');
+            }
+            
+
+            function renderDropdown() {
+                list.innerHTML = '';
+
+                // "Select All" checkbox
+                const selectAllLabel = document.createElement('label');
+                selectAllLabel.className = 'dropdown-item';
+
+                const selectAllCheckbox = document.createElement('input');
+                selectAllCheckbox.type = 'checkbox';
+                selectAllCheckbox.checked = selected.size === options.length;
+
+                selectAllCheckbox.addEventListener('change', () => {
+                    if (selectAllCheckbox.checked) {
+                        options.forEach(opt => selected.add(opt));
+                    } else {
+                        selected.clear();
+                    }
+                    updateDisplay();
+                    renderDropdown();
+                });
+
+                selectAllLabel.appendChild(selectAllCheckbox);
+                selectAllLabel.appendChild(document.createTextNode('Select All'));
+                list.appendChild(selectAllLabel);
+
+                // Individual options
+                options.forEach(opt => {
+                    const label = document.createElement('label');
+                    label.className = 'dropdown-item';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = selected.has(opt);
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            selected.add(opt);
+                        } else {
+                            selected.delete(opt);
+                        }
+                        updateDisplay();
+                        renderDropdown();
+                    });
+
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(opt));
+                    list.appendChild(label);
+                });
+            }
+            
+            let isDropdownOpen = false;  // Track whether the dropdown is open
+
+            inputEl.addEventListener('click', () => {
+                isDropdownOpen = !isDropdownOpen;
+                list.classList.toggle('hidden', !isDropdownOpen);
+                if (isDropdownOpen) {
+                  renderDropdown();
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target) && isDropdownOpen) {
+                  list.classList.add('hidden');
+                  isDropdownOpen = false;
+                    fetchData();
+                }
+              });
+            
+            updateDisplay();
+        }
+
+        // Initialize all dropdowns on the page
+        document.querySelectorAll('.multi-dropdown').forEach(input => {
+            createMultiSelectDropdown(input);
+        });
+        
+        
+        //fetchData();
+        
+        
+    </script>
+
+</body>
+</html>

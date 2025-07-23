@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "396c291f-53c9-4256-a90a-81167fd05e90",
+  "id": "mugenHitboxStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}
