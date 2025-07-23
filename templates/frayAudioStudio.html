@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Fray Audio Studio</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200..800&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+        
+        <style>
+            body {
+                background: #EBE9E9;
+                margin:0;
+                padding:0;
+            }
+            
+            .header {
+                font-family: "Roboto Condensed", sans-serif;
+                font-weight: 400;
+                text-align: center;
+                font-size: 40px;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .subheader {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 24px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptContainer {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+            }
+            
+            .projectPrompt {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                border: solid black 3px;
+                border-radius: 5px;
+                width: 50%;
+            }
+            
+            .projectPromptMessage {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 20px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptFiles {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+            }
+            
+            .projectPromptButton {
+                font-family: "Assistant", sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                text-align: center;
+                margin: 10px 0px 10px 0px;
+                
+            }
+            
+            .hide {
+                display: none;
+            }
+            
+            .dropdownContainer {
+                width: 60%;
+                margin: auto;
+                font-family: "Assistant", sans-serif;
+            }
+
+            .dropdown {
+                background-color: #fff;
+                border: 2px solid #444;
+                border-radius: 6px;
+                margin: 10px 0;
+                overflow: hidden;
+            }
+
+            .dropdownHeader {
+                background-color: #ccc;
+                padding: 12px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+
+            .dropdownContent {
+                display: none;
+                padding: 10px;
+                border-top: 1px solid #444;
+                background-color: #f9f9f9;
+            }
+
+            .dropdownContent ul {
+                list-style-type: none;
+                margin: 0;
+                padding: 0;
+            }
+
+            .dropdownContent li {
+                padding: 10px;
+                cursor: pointer;
+                border-bottom: 1px solid #ddd;
+                transition: background-color 0.2s;
+            }
+
+            .dropdownContent li:nth-child(odd) {
+                background-color: #f1f1f1;
+            }
+
+            .dropdownContent li:nth-child(even) {
+                background-color: #ffffff;
+            }
+
+            .dropdownContent li:hover {
+                background-color: #e0e0e0;
+            }
+            
+            .popup {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+
+            .popupContent {
+                background-color: white;
+                padding: 30px;
+                border-radius: 12px;
+                position: relative;
+                width: 300px;
+                text-align: center;
+                font-family: "Assistant", sans-serif;
+            }
+
+            .closeBtn {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            #renderBtn {
+                padding: 10px 20px;
+                margin-top: 20px;
+                font-size: 16px;
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+
+            #renderBtn:hover {
+                background-color: #45a049;
+            }
+            
+            .preview {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center; 
+            }
+            
+            .download {
+                padding: 10px 20px;
+                margin-top: 20px;
+                font-size: 16px;
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+            
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                background-color: #fff;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            }
+            th, td {
+                padding: 12px 16px;
+                border-bottom: 1px solid #ddd;
+                text-align: left;
+            }
+            
+            td {
+                font-family: "Assistant", sans-serif;
+            }
+            th {
+                font-size: 16px;
+                background-color: #f0f0f0;
+                font-family: "Roboto Condensed", sans-serif;
+                font-weight: bold;
+            }
+            audio {
+                width: 200px;
+            }
+            tr:hover {
+                background-color: #f1f1f1;
+            }
+            
+            input[type="text"] {
+                width: 100%;
+                padding: 6px;
+                box-sizing: border-box;
+                font-size: 16px;
+                font-family: "Assistant", sans-serif;
+            }
+            
+            .audioContainer {
+                margin: 40px 40px;
+            }
+            
+            .copy-btn {
+                background: none;
+                border: none;
+                color: #000000;
+                cursor: pointer;
+                text-decoration: underline;
+                font-size: 16px;
+                padding: 0;
+                font-family: "Assistant", sans-serif;
+            }
+            .copy-btn:hover {
+                color: #191919;
+            }
+            
+            
+        </style>
+    </head>
+    <body>
+        
+        <h1 class='header'>Fray Audio Studio</h1>
+        <h2 class='subheader'>Manage audio for your Fraytools project!</h2>
+        <div id='projectPromptView' class='projectPromptContainer'>
+            
+            <div class='projectPrompt'>
+                <p class='projectPromptMessage'>Upload Project Files</p>
+                <input type="file" id="folderInput" webkitdirectory multiple onchange="uploadFolder(event)"/>
+                <br>
+            </div>
+            <br>
+        </div>
+        <br>
+        <div class="audioContainer">
+            <table id="audioTable" class='hidden'>
+                <thead>
+                    <tr>
+                        <th>Play Audio</th>
+                        <th>File Name</th>
+                        <th>File ID</th>
+                        <th>Audio Code</th>
+                    </tr>
+                    </thead>
+                <tbody id='tableBody'>
+                <!-- Rows will be added here by JS -->
+                </tbody>
+            </table>
+        </div>
+
+<script>
+    
+    var audioData = null;
+
+    async function uploadFolder(event) {
+        const files = event.target.files;
+        
+        var chunkSize = 100;
+        
+        const filesArray = Array.from(files);  // Convert FileList to an array
+    
+        let chunkedFiles = [];
+    
+        // Split the files into chunks
+        for (let i = 0; i < filesArray.length; i += chunkSize) {
+            chunkedFiles.push(filesArray.slice(i, i + chunkSize));  
+    }
+        
+        for (let chunk of chunkedFiles) {
+            const formData = new FormData();
+
+            // Add all files in the current chunk to the formData
+            chunk.forEach(file => {
+                formData.append('files', file);
+                formData.append('file_paths', file.webkitRelativePath);  // Add the relative path as a separate field
+            });
+        
+            // Include the total file count in the request (so the server knows when to return the final result)
+            formData.append('total_files', files.length);
+
+            try {
+                const response = await fetch('/getAudioData', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result['status'] == 'Upload Complete') {
+                    //projectFiles = result['ProjectFiles'];
+                    audioData = result['AudioData'];
+                    console.log(audioData);
+                    generateTable(audioData);
+                    document.getElementById('audioTable').classList.remove('hidden');
+                    document.getElementById('projectPromptView').classList.add('hide');
+                    
+                }
+                
+
+            } catch (err) {
+                console.error('Upload failed:', err);
+            }
+        }
+        
+    }
+    
+    function generateTable(audioData) {
+        const tbody = document.getElementById('tableBody');
+
+        for (const [uuid, audioObj] of Object.entries(audioData)) {
+            
+            const row = document.createElement("tr");
+
+            const audioSrc = `data:audio/wav;base64,${audioObj.data}`;
+
+            row.innerHTML = `
+                <td><audio controls src="${audioSrc}"></audio></td>
+                <td>${audioObj.path}</td>
+                <td><input type="text" value="${audioObj.id}" /></td>
+                <td><button class='copy-btn' onclick="copyToClipboard(this)">AudioClip.play(self.getResource().getContent("${audioObj.id}"));</td></button>
+            `;
+
+            tbody.appendChild(row);
+        }
+    }
+    
+    function copyToClipboard(button) {
+        const text = button.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            // Optional: give user feedback
+            button.textContent = "Copied!";
+            setTimeout(() => button.textContent = text, 1000);
+        }).catch(err => {
+            console.error("Failed to copy text: ", err);
+        });
+    }
+    
+    
+</script>
+
+    
+    </body>
+</html>

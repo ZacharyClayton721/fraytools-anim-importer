@@ -599,6 +599,25 @@ def uploadAir():
     return jsonify({"status": "Upload Complete", "anim names": anim_names}), 200
 
 
+@app.route("/uploadCns", methods=["POST"])
+def uploadCns():
+    if "cns_data" not in session:
+        session["cns_data"] = []
+
+    uploaded_files = request.files.getlist("files")
+    if not uploaded_files:
+        return jsonify({"error": "No CNS files uploaded"}), 400
+
+    for f in uploaded_files:
+        cns_data = f.read().decode("utf-8")
+        session["cns_data"].append(cns_data)
+
+    return (
+        jsonify({"status": "Upload Complete"}),
+        200,
+    )
+
+
 def generateAirAnimNames(air_data):
 
     air_data = air_data.decode("utf-8").splitlines()
@@ -1192,8 +1211,35 @@ def updateCostumes(costumes, project_name):
     return costumes
 
 
+def parse_cns_file(lines):
+    state_to_anim = {}
+    current_state = None
+
+    for line in lines:
+        line = line.strip()
+
+        match_state = re.match(r"\[Statedef (\d+)\]", line)
+        if match_state:
+            current_state = int(match_state.group(1))
+
+        match_anim = re.match(r"anim\s*=\s*(\d+)", line, re.IGNORECASE)
+        if match_anim and current_state is not None:
+            state_to_anim[current_state] = int(match_anim.group(1))
+    return state_to_anim
+
+
 @app.route("/importCharacter", methods=["POST"])
 def importCharacter():
+
+    cns_files = session["cns_data"]
+
+    state_anim_map = {}
+
+    for cns_text in cns_files:
+        state_anim_map.update(parse_cns_file(cns_text.splitlines()))
+
+    print(state_anim_map)
+
     data = request.get_json()
     app_root = current_app.root_path
     project_name = data["projectName"]
