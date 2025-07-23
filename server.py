@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar 14 13:16:31 2025
-
 @author: ZANN
 """
 
@@ -11,9 +10,7 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 import json
-import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
-import cloudscraper
 import os
 import imageio
 from PIL import Image, ImageDraw
@@ -21,7 +18,6 @@ import io
 import base64
 import uuid
 import zipfile
-
 import re
 from collections import deque
 import math
@@ -104,76 +100,8 @@ def convertToGUID(data_list: list):
     for dl in data_list:
         data_dict[dl['$id']] = dl
     
-    return data_dict
-
-'''Cleans XML data'''
-def cleanXML(xml_data):
-    xml_data = xml_data.replace('\\','')
-    xml_data = xml_data.replace('\n','')
-    return xml_data
-
-
-'''Used to generate the datasetUsed report'''
-def datasetUsed(data,datasets):
-    for k,v in data.items():
-        if len(data[k]['children'].keys()) > 0:
-            datasets = datasetUsed(data[k]['children'], datasets)
-        elif data[k]['Type'] == 'Analysis':
-            print('Analysis')
-            print(data[k]['path'])
-            xml_data = cleanXML(data[k]['XML'])
-            soup = BeautifulSoup(xml_data,'xml')
-            criteria = soup.find('saw:criteria')
-            ds = criteria.get('subjectArea')
-            print(ds)
-            if 'XSA' in ds:
-                if ds in datasets:
-                    datasets[ds]['items'].append({'name':k, 'path':data[k]['data']['path']})
-
-                else:
-                    temp = ds.replace('XSA','')
-                    temp = temp.replace('(','')
-                    temp = temp.replace(')','')
-                    temp_split = temp.split("'.'")
-                    displayName = temp_split[1].replace("'",'')
-                    owner = temp_split[0].replace("'",'')
-                    datasets[ds] = {'displayName':displayName,'subjectArea':ds, 'owner':owner,'items':[{'name':k,'path':data[k]['data']['path']}],'type':'ERROR'}
-                
-            
-                
-                
-        elif data[k]['Type'] == 'Dashboard Prompt':
-            print('Dashboard Prompt')
-            print(data[k]['path'])
-            xml_data = cleanXML(data[k]['XML'])
-            soup = BeautifulSoup(xml_data,'xml')
-            prompt = soup.find('saw:prompt')
-            ds = prompt.get('subjectArea')
-            
-            if ds == None:
-                prompt = soup.find('saw:prompts')
-                ds = prompt.get('subjectArea')
-                
-            print(ds)
-            
-            if 'XSA' in ds:
-                if ds in datasets:
-                    datasets[ds]['items'].append({'name':k, 'path':data[k]['data']['path']})
-                else:
-                    temp = ds.replace('XSA','')
-                    temp = temp.replace('(','')
-                    temp = temp.replace(')','')
-                    temp_split = temp.split("'.'")
-                    displayName = temp_split[1].replace("'",'')
-                    owner = temp_split[0].replace("'",'')
-                    datasets[ds] = {'displayName':displayName,'subjectArea':ds, 'owner':owner,'items':[{'name':k,'path':data[k]['data']['path']}],'type':'ERROR'}
-        
-                
-    return datasets
+    return data_dict 
     
-                
-        
-
 @app.route('/')
 def home():
     return render_template('index.html')  # Serve the HTML page
@@ -195,110 +123,7 @@ def frayAnimationImporter():
     session.pop('folder_tree', None)
     session.pop('file_count', None)
     session.pop('sprite_data', None)
-    return render_template('frayAnimationImporter.html')
-
-
-@app.route('/dataFilter', methods=['POST', 'OPTIONS'])
-def serve_csv_filter():
-    data = request.get_json()
-    print(data)
-    
-    
-    df = pd.read_csv('Diamonds.csv')
-    df = df.fillna(value='null')
-    
-    df = df[df['Clarity'].isin(data['Clarity'])]
-    df = df[df['Color'].isin(data['Color'])]
-    df = df[df['Website'].isin(data['Website'])]
-    df = df[df['Cut'].isin(data['Cut'])]
-    df = df[df['FlourFullName'].isin(data['FlourFullName'])]
-    df = df[df['Symmetry'].isin(data['Symmetry'])]
-    df = df[df['Polish'].isin(data['Polish'])]
-    df = df[(df['Carat'] >= data['LowCarat']) & (df['Carat'] <= data['HighCarat'])]
-    df_sorted = df.sort_values(by='Price')
-    
-    average = df['Price'].mean()
-    median = df['Price'].median()
-    
-    return jsonify({'Diamonds':df_sorted.to_dict(orient='records'), 'Average':f"${average:,.2f}", 'Median':f"${median:,.2f}"})
-
-
-@app.route('/jiraSearch', methods=['POST', 'OPTIONS'])
-def jiraSearch():
-	data = request.get_json()
-	# Replace with your JIRA instance URL, username, and API token	
-	jira_url = "https://quantumfinancials.atlassian.net/rest/api/3/search"
-	username = data.get("email")
-	api_token = data.get("token")
-
-	# Set up authentication
-	auth = HTTPBasicAuth(username, api_token)
-
-	# Define headers for the request
-	headers = {
-		"Accept": "application/json"
-	}
-
-	# Define the JQL query to search for issues in project 'UA' that contain 'QA4' in the summary
-	jql_query = {
-		"jql": "project = 'UA' AND summary ~ '"+data.get("key")+"'",
-		"maxResults": 100  # Adjust maxResults as needed
-	}
-
-	# Send the GET request to JIRA API
-	response = requests.get(jira_url, headers=headers, auth=auth, params=jql_query)
-
-	# Check for successful response
-	if response.status_code == 200:
-		issues = response.json()
-		print(f"Retrieved {len(issues['issues'])} issues.")
-			
-		return issues, 200
-	else:
-		return jsonify({"Message":"Error gatehring data"}), 400
-    
-@app.route('/datasetToItems', methods=['POST', 'OPTIONS'])
-def datasetToItems():
-    
-    ## Get Post Data
-    ## Should be a list of datasets
-    data = request.get_json()
-    
-    print(data)
-    
-    datasets = data['datasets']
-    
-    ## Load Catalog export data
-    with open('Catalog.json','r') as file:
-        catalog_json = json.load(file)
-        
-    
-    datasets = datasetUsed(catalog_json, datasets)
-    print(datasets)
-    
-    return jsonify({"data":datasets}), 200
-
-
-@app.route('/oacSession', methods=['POST', 'OPTIONS'])
-def oacSession():
-    data = request.get_json()
-    print('Yeah')
-    print(data)
-    # Define headers for the request
-    headers = data['headers']
-    cookies = data['cookies']
-    
-    response = requests.get('https://analyticsdev.umaryland.edu/ui/dv/ui/api/v1/sessioninfo/ext', headers=headers)
-    
-    if response.status_code == 200:
-        print(response)
-        sessionInfo = response.json()
-        print('Actually got session data')
-        print(sessionInfo)
-        return sessionInfo, 200
-    else:
-        return jsonify({"Error Code":response.status_code}), 400
-    
+    return render_template('frayAnimationImporter.html') 
     
 ## Fraytools General Functions
 @app.route('/getAnimationNames', methods=['POST'])
@@ -366,8 +191,7 @@ def getAudioData():
         return jsonify(final_dict), 200
     
     return jsonify({'status': 'Uploading chunk...'}), 200
-
-        
+      
 def createFolderStructure(files, file_paths, folder_tree):
 
     for file, path in zip(files, file_paths):
@@ -441,7 +265,6 @@ def generateAnimationNames(folder_tree):
         animation_names[e] = animation_name_list
         
     return animation_names
-
 
 def generateAudioData(folder_tree):
     audio_data = {}
@@ -520,7 +343,6 @@ def parseFFE(text):
     
     return entries
     
-
 @app.route('/generateGIF', methods=['POST'])
 def generateGIF():
     data = request.get_json()
@@ -574,15 +396,11 @@ def animationToImg(name, sprite_guids, ce_data):
                                                  symbol_data['y']
                                                  ])
                         
-                    
-                    
                     min_x = min_y = 0
                     max_x = max_y = 0
                     
                     x_pos = []
                     y_pos = []
-                    
-                    
                     
                     for img_info in master_image:
                         #print(img_info[0])
@@ -605,10 +423,8 @@ def animationToImg(name, sprite_guids, ce_data):
                     canvas_width = max_x - min_x
                     canvas_height = max_y - min_y
                     
-                    
                     minimum_x = min(x_pos)
                     minimum_y = min(y_pos)
-                    
                     
                     if minimum_x < 0:
                         canvas_center_x = minimum_x * -1
@@ -625,8 +441,6 @@ def animationToImg(name, sprite_guids, ce_data):
                         canvas_center_y = minimum_y
                         min_y -= minimum_y
                         
-                    
-                    
                     frames = []
                     
                     for img_info in master_image:
@@ -659,7 +473,6 @@ def animationToImg(name, sprite_guids, ce_data):
                         
                         frames.append(canvas)
                     
-                    
                     #gif_path = name+".gif"
                     gif_io = io.BytesIO()
                     
@@ -687,19 +500,14 @@ def animationToImg(name, sprite_guids, ce_data):
                     )
                     webp_io.seek(0)
 
-                    
-
     webp_base64 = base64.b64encode(webp_io.read()).decode('utf-8')              
     gif_base64 = base64.b64encode(gif_io.read()).decode('utf-8')
     return {"name": name + ".gif","data": gif_base64, "preview":webp_base64}
-
-
 
 ## Fraytools Animation Importer
 @app.route('/uploadSprites', methods=['POST'])
 def uploadSprites():
     
-
     if 'folder_tree' not in session:
         session['folder_tree'] = {}  # Initialize empty tree in session
         session['file_count'] = 0
@@ -898,7 +706,6 @@ def generateAirAnimNames(air_data):
     
     return actions
                 
-
 @app.route('/generateAnimPreview', methods=['POST'])
 def generateAnimPreview():
     data = request.get_json()
@@ -1016,20 +823,6 @@ def generateAnimation(layers,name):
                       'pluginMetadata':{}}
     
     return animation_guid, animation_data
-    
-'''    
-def generateLayer(keyframes):
-    layer_guid = str(uuid.uuid4())
-    layer_data = {'$id':layer_guid,
-                  'hidden':False,
-                  'keyframes':keyframes,
-                  'locked':False,
-                  'name':'Image 0',
-                  'pluginMetadata':{},
-                  'type':'IMAGE'}
-    
-    return layer_guid, layer_data
-'''
 
 def generateLayer(keyframes, item_type, hitbox_index=0, hurtbox_index=0):
     layer_guid = str(uuid.uuid4())
@@ -1129,9 +922,7 @@ def generateKeyframe(img_guid, item_type, duration):
 def addAnimationsToCE(ce_file, project_name):
     print('The big one')
     air_data = session['air_data']
-    
-    
-    
+
     for ad in air_data:
         
         layers = []
@@ -1144,9 +935,6 @@ def addAnimationsToCE(ce_file, project_name):
         hurtbox_count = max(len(f['hurtboxes']) for f in frames)
         hitbox_count = max(len(f['hitboxes']) for f in frames)
                 
-        
-        
-        
         hurtbox_keyframes = [[] for x in range(0,hurtbox_count)]
         hitbox_keyframes = [[] for x in range(0,hitbox_count)]
         
@@ -1166,7 +954,6 @@ def addAnimationsToCE(ce_file, project_name):
                 keyframe_guid, keyframe_data = generateKeyframe(box_guid, 'COLLISION_BOX', f['duration'])
                 index_list[i].append(keyframe_guid)
                 ce_file['keyframes'].append(keyframe_data)
-        
         
         for f in frames:
             # Generate image keyframe
@@ -1228,10 +1015,6 @@ def addAnimationsToCE(ce_file, project_name):
             keyframes.append(keyframe_guid)
             ce_file['keyframes'].append(keyframe_data)
     
-            #print(img_meta)
-            #print(ffe_data)
-            #print(f['image'])
-    
             # Append hurtbox and hitbox keyframes
             append_collision_keyframe(f['hurtboxes'], 'hurtbox', hurtbox_keyframes)
             append_collision_keyframe(f['hitboxes'], 'hitbox', hitbox_keyframes)
@@ -1247,9 +1030,7 @@ def addAnimationsToCE(ce_file, project_name):
             )
             ce_file['layers'].append(layer_data)
             layers.append(layer_guid)
-                    
-                    
-            
+
         create_layer(keyframes, 'image')
         
         for i, kfs in enumerate(hurtbox_keyframes):
@@ -1258,8 +1039,6 @@ def addAnimationsToCE(ce_file, project_name):
         for i, kfs in enumerate(hitbox_keyframes):
             create_layer(kfs, 'hitbox', i)
         
-    
-    
         animation_guid, animation_data = generateAnimation(layers,ad)
     
         ## Record layer to ce_file
@@ -1371,8 +1150,7 @@ def importCharacter():
         add_folder_to_zip(zip_file, folder_tree)
 
     zip_buffer.seek(0)
-    
-    
+
     return send_file(
         zip_buffer,
         mimetype='application/zip',
@@ -1380,8 +1158,5 @@ def importCharacter():
         download_name=project_name+'.zip'
     )
 
-    
-            
-    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
