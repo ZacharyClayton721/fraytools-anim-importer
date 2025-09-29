@@ -28,7 +28,7 @@ import base64
 import uuid
 import zipfile
 import re
-from collections import deque
+from collections import deque, defaultdict
 import math
 
 app = Flask(__name__)
@@ -591,12 +591,32 @@ def uploadAir():
     session["air_data"] = air_file.read()
 
     air_data = generateAirAnimNames(session["air_data"])
+    print(air_data["strong_forward_in"])
 
     session["air_data"] = air_data
 
     anim_names = list(air_data.keys())
 
     return jsonify({"status": "Upload Complete", "anim names": anim_names}), 200
+
+
+@app.route("/uploadCns", methods=["POST"])
+def uploadCns():
+    if "cns_data" not in session:
+        session["cns_data"] = []
+
+    uploaded_files = request.files.getlist("files")
+    if not uploaded_files:
+        return jsonify({"error": "No CNS files uploaded"}), 400
+
+    for f in uploaded_files:
+        cns_data = f.read().decode("utf-8")
+        session["cns_data"].append(cns_data)
+
+    return (
+        jsonify({"status": "Upload Complete"}),
+        200,
+    )
 
 
 def generateAirAnimNames(air_data):
@@ -747,6 +767,9 @@ def generateAirAnimNames(air_data):
             actions[current_animation or f"Action_{current_action}"]["frames"].append(
                 frame
             )
+        actions[current_animation or f"Action_{current_action}"][
+            "Action Code"
+        ] = current_action
 
         i += 1
 
@@ -845,22 +868,25 @@ def generateAnimPreview():
 
 
 def add_folder_to_zip(zip_file, folder_tree, current_path=""):
+    # Only create folder entry if current_path is non-empty
+    if current_path:
+        zip_file.writestr(current_path + "/", b"")
+
     for name, content in folder_tree.items():
-        path_in_zip = f"{current_path}{name}"
+        # Build path in zip
+        path_in_zip = f"{current_path}/{name}" if current_path else name
 
         if (
             isinstance(content, dict)
             and "_type" in content
             and content["_type"] == "json"
         ):
-            # Convert back parsed JSON to string
             json_text = json.dumps(content["_content"], indent=2)
             zip_file.writestr(path_in_zip, json_text.encode("utf-8"))
 
         elif isinstance(content, dict):
-            # It's a folder
-            zip_file.writestr(path_in_zip + "/", "")
-            add_folder_to_zip(zip_file, content, path_in_zip + "/")
+            # For nested folders, recurse and pass the full path
+            add_folder_to_zip(zip_file, content, path_in_zip)
 
         elif isinstance(content, (bytes, str)):
             if isinstance(content, str):
@@ -868,7 +894,6 @@ def add_folder_to_zip(zip_file, folder_tree, current_path=""):
             zip_file.writestr(path_in_zip, content)
 
         elif isinstance(content, (list, int, float, bool)):
-            # Fallback if somehow plain values get through
             json_text = json.dumps(content, indent=2)
             zip_file.writestr(path_in_zip, json_text.encode("utf-8"))
 
@@ -994,7 +1019,7 @@ def generateKeyframe(img_guid, item_type, duration):
     return keyframe_guid, keyframe_data
 
 
-def addAnimationsToCE(ce_file, project_name):
+def addAnimationsToCE(ce_file, project_name, state_anim_map):
     print("The big one")
     air_data = session["air_data"]
 
@@ -1102,7 +1127,27 @@ def addAnimationsToCE(ce_file, project_name):
             append_collision_keyframe(f["hitboxes"], "hitbox", hitbox_keyframes)
 
         # Generate and append all layers
-        def create_layer(kf, itype, index=None):
+        def create_layer(kf, itype, index=None, audio_data=None):
+            if itype == "frame_script" and audio_data:
+                # Generate a UUID for the layer
+                layer_guid = str(uuid.uuid4())
+                # Build the frame script layer format
+                layer_data = {
+                    "$id": layer_guid,
+                    "hidden": False,
+                    "keyframes": kf,  # should be list of keyframe IDs
+                    "language": "hscript",
+                    "locked": False,
+                    "name": "Frame Script Layer",
+                    "pluginMetadata": {},
+                    "type": "FRAME_SCRIPT",
+                }
+                ce_file["layers"].append(layer_data)
+                layers.append(layer_guid)
+
+                return layer_guid, layer_data
+
+            # Default: hurtbox/hitbox/etc.
             layer_guid, layer_data = generateLayer(
                 keyframes=kf,
                 item_type=itype,
@@ -1112,6 +1157,43 @@ def addAnimationsToCE(ce_file, project_name):
             ce_file["layers"].append(layer_data)
             layers.append(layer_guid)
 
+            return layer_guid, layer_data
+
+        def create_audio_keyframes(audio_events):
+            # Sort events by frame
+            audio_events = sorted(audio_events, key=lambda x: x["frame"])
+
+            keyframes = []
+            for i, event in enumerate(audio_events):
+                frame = event["frame"]
+                # Collect all events on this frame
+                same_frame_events = [e for e in audio_events if e["frame"] == frame]
+
+                # Generate code lines
+                code_lines = [f"aud('{e['audio_path']}');" for e in same_frame_events]
+                code = "\n".join(code_lines)
+
+                # Length = difference to next frame
+                if i + 1 < len(audio_events):
+                    next_frame = audio_events[i + 1]["frame"]
+                    length = next_frame - frame
+                else:
+                    length = 1  # default for last keyframe
+
+                # Create keyframe object
+                kf_id = str(uuid.uuid4())
+                keyframe = {
+                    "$id": kf_id,
+                    "code": code,
+                    "length": length,
+                    "pluginMetadata": {},
+                    "type": "FRAME_SCRIPT",
+                }
+                ce_file["keyframes"].append(keyframe)
+                keyframes.append(kf_id)
+
+            return keyframes
+
         create_layer(keyframes, "image")
 
         for i, kfs in enumerate(hurtbox_keyframes):
@@ -1119,6 +1201,18 @@ def addAnimationsToCE(ce_file, project_name):
 
         for i, kfs in enumerate(hitbox_keyframes):
             create_layer(kfs, "hitbox", i)
+
+        action_id = air_data[ad]["action"]
+
+        if action_id == 220:
+            print("STRONG FORWARD IN")
+            if action_id in state_anim_map:
+                audio_data = state_anim_map[action_id]
+                kf_ids = create_audio_keyframes(audio_data)
+                create_layer(kf_ids, "frame_script", audio_data=audio_data)
+
+            else:
+                print("No audio data for this action")
 
         animation_guid, animation_data = generateAnimation(layers, ad)
 
@@ -1192,8 +1286,189 @@ def updateCostumes(costumes, project_name):
     return costumes
 
 
+def parse_sounds_by_state(cns_text):
+    data = defaultdict(list)  # {statedef: [all sounds/hits entries]}
+
+    current_statedef = None
+    current_section = None
+    inside_hitdef = False
+    hitdef_data = {}
+    current_sound = None
+    hitdef_frame = None  # New: store AnimElem frame for HitDef
+
+    lines = cns_text.splitlines()
+
+    re_statedef = re.compile(r"\[Statedef\s+(\d+)\]", re.IGNORECASE)
+    re_state = re.compile(r"\[State\s+(\d+),?.*?\]", re.IGNORECASE)
+    re_type = re.compile(r"type\s*=\s*(\w+)", re.IGNORECASE)
+    re_trigger_anim = re.compile(r"trigger1\s*=\s*AnimElem\s*=\s*(\d+)", re.IGNORECASE)
+    re_value = re.compile(r"value\s*=\s*([\d\s,]+)", re.IGNORECASE)
+    re_hitsound = re.compile(r"hitsound\s*=\s*(s?.*)", re.IGNORECASE)
+    re_guardsound = re.compile(r"guardsound\s*=\s*(s?.*)", re.IGNORECASE)
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith(";"):
+            continue
+
+        # Detect Statedef block
+        m_statedef = re_statedef.match(line)
+        if m_statedef:
+            # Finalize hitdef sounds if we were inside one
+            if inside_hitdef and current_statedef is not None:
+                if hitdef_data.get("hitsound"):
+                    data[current_statedef].append(
+                        {
+                            "frame": hitdef_frame,
+                            "audio_path": hitdef_data["hitsound"],
+                            "type": "hit",
+                        }
+                    )
+                if hitdef_data.get("guardsound"):
+                    data[current_statedef].append(
+                        {
+                            "frame": hitdef_frame,
+                            "audio_path": hitdef_data["guardsound"],
+                            "type": "guard",
+                        }
+                    )
+                inside_hitdef = False
+                hitdef_data = {}
+                hitdef_frame = None
+
+            current_statedef = int(m_statedef.group(1))
+            current_section = None
+            current_sound = None
+            continue
+
+        # Detect State block
+        m_state = re_state.match(line)
+        if m_state:
+            # Finalize hitdef sounds if we were inside one
+            if inside_hitdef and current_statedef is not None:
+                if hitdef_data.get("hitsound"):
+                    data[current_statedef].append(
+                        {
+                            "frame": hitdef_frame,
+                            "audio_path": hitdef_data["hitsound"],
+                            "type": "hit",
+                        }
+                    )
+                if hitdef_data.get("guardsound"):
+                    data[current_statedef].append(
+                        {
+                            "frame": hitdef_frame,
+                            "audio_path": hitdef_data["guardsound"],
+                            "type": "guard",
+                        }
+                    )
+                inside_hitdef = False
+                hitdef_data = {}
+                hitdef_frame = None
+
+            current_section = None
+            current_sound = None
+            continue
+
+        # Detect section type
+        m_type = re_type.match(line)
+        if m_type:
+            t = m_type.group(1).lower()
+            current_section = t
+            if t in ("playsnd", "playsound"):
+                current_sound = {"type": t, "frame": None, "audio_path": None}
+                inside_hitdef = False
+                hitdef_frame = None
+            elif t == "hitdef":
+                inside_hitdef = True
+                hitdef_data = {"hitsound": None, "guardsound": None}
+                hitdef_frame = None
+                current_sound = None
+            else:
+                inside_hitdef = False
+                current_sound = None
+                hitdef_frame = None
+            continue
+
+        # Parse playsnd sound data
+        if current_section in ("playsnd", "playsound") and current_sound is not None:
+            m_trigger = re_trigger_anim.match(line)
+            if m_trigger:
+                current_sound["frame"] = int(m_trigger.group(1))
+                continue
+
+            m_value = re_value.match(line)
+            if m_value:
+                audio_vals = m_value.group(1).strip().replace(" ", "").replace(",", "-")
+                current_sound["audio_path"] = audio_vals
+                if (
+                    current_sound["frame"] is not None
+                    and current_sound["audio_path"] is not None
+                ):
+                    if current_statedef is not None:
+                        data[current_statedef].append(current_sound)
+                    current_sound = None
+                continue
+
+        # Parse HitDef block for hitsound, guardsound, and trigger1 AnimElem frame
+        if inside_hitdef and current_statedef is not None:
+            m_trigger = re_trigger_anim.match(line)
+            if m_trigger:
+                hitdef_frame = int(m_trigger.group(1))
+                continue
+
+            m_hit = re_hitsound.match(line)
+            if m_hit:
+                val = m_hit.group(1).strip()
+                if val.lower().startswith("s"):
+                    val = val[1:]
+                parts = [p.strip() for p in val.split(",")]
+                if len(parts) == 2:
+                    val = f"{parts[0]}-{parts[1]}"
+                hitdef_data["hitsound"] = val
+
+            m_guard = re_guardsound.match(line)
+            if m_guard:
+                val = m_guard.group(1).strip()
+                if val.lower().startswith("s"):
+                    val = val[1:]
+                parts = [p.strip() for p in val.split(",")]
+                if len(parts) == 2:
+                    val = f"{parts[0]}-{parts[1]}"
+                hitdef_data["guardsound"] = val
+
+    # Finalize hitdef sounds at EOF if still open
+    if inside_hitdef and current_statedef is not None:
+        if hitdef_data.get("hitsound"):
+            data[current_statedef].append(
+                {
+                    "frame": hitdef_frame,
+                    "audio_path": hitdef_data["hitsound"].replace("s", ""),
+                    "type": "hit",
+                }
+            )
+        if hitdef_data.get("guardsound"):
+            data[current_statedef].append(
+                {
+                    "frame": hitdef_frame,
+                    "audio_path": hitdef_data["guardsound"].replace("s", ""),
+                    "type": "guard",
+                }
+            )
+
+    return dict(data)
+
+
 @app.route("/importCharacter", methods=["POST"])
 def importCharacter():
+
+    cns_files = session["cns_data"]
+
+    state_anim_map = {}
+
+    for cns_text in cns_files:
+        state_anim_map.update(parse_sounds_by_state(cns_text))
+
     data = request.get_json()
     app_root = current_app.root_path
     project_name = data["projectName"]
@@ -1215,12 +1490,15 @@ def importCharacter():
     ]
 
     project_name = data["projectName"]
+    print("Project Name")
+    print(project_name)
 
     ce_file = folder_tree["library"]["entities"]["character.entity"]["_content"]
-    ce_file = addAnimationsToCE(ce_file, project_name)
+    ce_file = addAnimationsToCE(ce_file, project_name, state_anim_map)
 
     ## Update script names with new project_name
     scripts = folder_tree["library"]["scripts"]["Character"]
+
     scripts = updateScripts(scripts, project_name)
 
     manifest = folder_tree["library"]["manifest.json"]["_content"]
@@ -1229,11 +1507,11 @@ def importCharacter():
     costumes = folder_tree["library"]["costumes.palettes"]["_content"]
     costumes = updateCostumes(costumes, project_name)
 
-    folder_tree = {project_name: folder_tree}
+    project_folder_tree = {project_name: folder_tree}
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        add_folder_to_zip(zip_file, folder_tree)
+        add_folder_to_zip(zip_file, project_folder_tree)
 
     zip_buffer.seek(0)
 
