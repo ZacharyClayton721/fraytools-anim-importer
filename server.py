@@ -1,69 +1,78 @@
 # -*- coding: utf-8 -*-
 """
+Fraytools Animation Importer Server
 Created on Fri Mar 14 13:16:31 2025
 @author: ZANN
 """
 
+# Standard library imports
+import base64
+import io
+import json
+import math
+import os
+import re
+import uuid
+import zipfile
+from collections import deque, defaultdict
+
+# Third-party imports
+import imageio
+from PIL import Image, ImageDraw
 from flask import (
     Flask,
     render_template,
     jsonify,
     request,
-    Response,
     session,
     current_app,
     send_file,
 )
 from flask_session import Session
-import pandas as pd
-import requests
-from requests.auth import HTTPBasicAuth
-import json
-from bs4 import BeautifulSoup
-import os
-import imageio
-from PIL import Image, ImageDraw
-import io
-import base64
-import uuid
-import zipfile
-import re
-from collections import deque, defaultdict
-import math
 
-app = Flask(__name__)
 
-## 100MB File Upload Limit
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
+# Flask app configuration
+def create_app():
+    app = Flask(__name__)
 
-app.secret_key = "Ht5y2agdNhajsLkkk"
+    # App configuration
+    app.config.update(
+        {
+            "MAX_CONTENT_LENGTH": 200 * 1024 * 1024,  # 200MB file upload limit
+            "SECRET_KEY": "Ht5y2agdNhajsLkkk",
+            "SESSION_TYPE": "filesystem",
+            "SESSION_FILE_DIR": os.path.join(app.root_path, "flask_session"),
+            "SESSION_PERMANENT": False,
+        }
+    )
 
-app.config["SESSION_TYPE"] = "filesystem"  # or 'redis', 'mongodb', etc.
-app.config["SESSION_FILE_DIR"] = os.path.join(app.root_path, "flask_session")
-app.config["SESSION_PERMANENT"] = False
+    Session(app)
+    return app
 
-Session(app)
 
-"""Fixes capatilization"""
+app = create_app()
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 
 def cap_sentence(s):
+    """Capitalize each word in a sentence."""
     return " ".join(w[:1].upper() + w[1:] for w in s.split(" "))
 
 
-"""Read JSON contents from given path"""
-
-
-def getJSONData(path: str):
+def get_json_data(path: str):
+    """Read JSON contents from given path."""
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-## Generate sprite metadata
-def generateSpriteMetaData():
+def generate_sprite_metadata():
+    """Generate sprite metadata with a unique GUID."""
     guid = str(uuid.uuid4())
 
-    sprite_metadata = {
+    return {
         "export": False,
         "guid": guid,
         "id": "",
@@ -73,170 +82,180 @@ def generateSpriteMetaData():
         "version": 2,
     }
 
-    return sprite_metadata
+
+# ============================================================================
+# DATA PROCESSING FUNCTIONS
+# ============================================================================
 
 
-"""Get the sprite data in the project"""
-
-
-def getSpriteData(folder: str):
+def get_sprite_data(folder: str):
+    """Extract sprite data from the project folder structure."""
     sprite_guids = {}
 
     def recurse(node):
         for name, content in node.items():
-            # current_path = f"{path}/{name}".strip("/")
-
             if name.endswith(".meta") and isinstance(content, dict):
                 guid = content["guid"]
                 if guid:
                     asset_path = name.replace(".meta", "")
-                    ##sprite_guids[guid] = asset_path
-
                     asset_data = node.get(asset_path)
-                    if isinstance(asset_data, bytes):
-                        sprite_guids[guid] = {"path": asset_path, "data": asset_data}
-                    else:
-                        # Just store the path if no image data
-                        sprite_guids[guid] = {"path": asset_path, "data": None}
+
+                    sprite_guids[guid] = {
+                        "path": asset_path,
+                        "data": asset_data if isinstance(asset_data, bytes) else None,
+                    }
 
             elif isinstance(content, dict):
                 recurse(content)
 
     recurse(folder)
-
     return sprite_guids
 
 
-"""Converts data list to a dict with GUID as key"""
+def convert_to_guid_dict(data_list: list):
+    """Convert a list of data objects to a dictionary with GUID as key."""
+    return {item["$id"]: item for item in data_list}
 
 
-def convertToGUID(data_list: list):
-    data_dict = {}
-    for dl in data_list:
-        data_dict[dl["$id"]] = dl
+# ============================================================================
+# SESSION MANAGEMENT
+# ============================================================================
 
-    return data_dict
+
+def clear_session_data(*keys):
+    """Clear specified keys from session data."""
+    for key in keys:
+        session.pop(key, None)
+
+
+def initialize_session_data(defaults=None):
+    """Initialize session data with default values."""
+    defaults = defaults or {}
+
+    if "folder_tree" not in session:
+        session["folder_tree"] = defaults.get("folder_tree", {})
+        session["file_count"] = defaults.get("file_count", 0)
+
+
+# ============================================================================
+# ROUTE HANDLERS - PAGE ROUTES
+# ============================================================================
 
 
 @app.route("/")
 def home():
-    return render_template("index.html")  # Serve the HTML page
+    """Serve the main HTML page."""
+    return render_template("index.html")
 
 
 @app.route("/frayToGIF")
-def frayToGIF():
-    session.pop("folder_tree", None)
-    session.pop("file_count", None)
+def fray_to_gif():
+    """Serve the GIF conversion page."""
+    clear_session_data("folder_tree", "file_count")
     return render_template("frayToGIF.html")
 
 
 @app.route("/frayAudioStudio")
-def frayAudioStudio():
-    session.pop("folder_tree", None)
-    session.pop("file_count", None)
+def fray_audio_studio():
+    """Serve the audio studio page."""
+    clear_session_data("folder_tree", "file_count")
     return render_template("frayAudioStudio.html")
 
 
 @app.route("/frayAnimationImporter")
-def frayAnimationImporter():
-    session.pop("folder_tree", None)
-    session.pop("file_count", None)
-    session.pop("sprite_data", None)
+def fray_animation_importer():
+    """Serve the animation importer page."""
+    clear_session_data("folder_tree", "file_count", "sprite_data")
     return render_template("frayAnimationImporter.html")
 
 
-## Fraytools General Functions
+# ============================================================================
+# ROUTE HANDLERS - API ROUTES
+# ============================================================================
+
+
+def handle_file_upload(files, file_paths, completion_callback):
+    """Common file upload handler pattern."""
+    initialize_session_data()
+
+    folder_tree = create_folder_structure(files, file_paths, session["folder_tree"])
+    session["folder_tree"] = folder_tree
+    session["file_count"] += len(files)
+
+    total_files = int(request.form.get("total_files", 0))
+    if session["file_count"] == total_files:
+        result = completion_callback(folder_tree)
+        return jsonify(result), 200
+
+    return jsonify({"status": "Uploading chunk..."}), 200
+
+
 @app.route("/getAnimationNames", methods=["POST"])
-def getAnimationNames():
-
-    if "folder_tree" not in session:
-        session["folder_tree"] = {}  # Initialize empty tree in session
-        session["file_count"] = 0
-
+def get_animation_names():
+    """Get animation names from uploaded Fraytools project."""
     files = request.files.getlist("files")
     file_paths = request.form.getlist("file_paths")
 
-    folder_tree = createFolderStructure(files, file_paths, session["folder_tree"])
-    session["folder_tree"] = folder_tree
-    # print(session['folder_tree'])
+    def on_completion(folder_tree):
+        animation_names = generate_animation_names(folder_tree)
+        return {"status": "Upload Complete", "AnimationNames": animation_names}
 
-    # Increment the file count
-    session["file_count"] += len(files)
-
-    if session["file_count"] == int(request.form.get("total_files")):
-        animation_names = generateAnimationNames(folder_tree)
-
-        final_dict = {"status": "Upload Complete", "AnimationNames": animation_names}
-
-        # Clear session data after processing
-        # session.pop('folder_tree', None)
-        # session.pop('file_count', None)
-
-        return jsonify(final_dict), 200
-
-    return jsonify({"status": "Uploading chunk..."}), 200
+    return handle_file_upload(files, file_paths, on_completion)
 
 
-## Fraytools General Functions
 @app.route("/getAudioData", methods=["POST"])
-def getAudioData():
-
-    if "folder_tree" not in session:
-        session["folder_tree"] = {}  # Initialize empty tree in session
-        session["file_count"] = 0
-
+def get_audio_data():
+    """Get audio data from uploaded Fraytools project."""
     files = request.files.getlist("files")
     file_paths = request.form.getlist("file_paths")
 
-    folder_tree = createFolderStructure(files, file_paths, session["folder_tree"])
-    session["folder_tree"] = folder_tree
-    # print(session['folder_tree'])
+    def on_completion(folder_tree):
+        audio_data = generate_audio_data(folder_tree)
+        return {"status": "Upload Complete", "AudioData": audio_data}
 
-    # Increment the file count
-    session["file_count"] += len(files)
-
-    if session["file_count"] == int(request.form.get("total_files")):
-
-        audio_data = generateAudioData(folder_tree)
-
-        final_dict = {"status": "Upload Complete", "AudioData": audio_data}
-
-        # Clear session data after processing
-        # session.pop('folder_tree', None)
-        # session.pop('file_count', None)
-
-        return jsonify(final_dict), 200
-
-    return jsonify({"status": "Uploading chunk..."}), 200
+    return handle_file_upload(files, file_paths, on_completion)
 
 
-def createFolderStructure(files, file_paths, folder_tree):
+# ============================================================================
+# FOLDER STRUCTURE FUNCTIONS
+# ============================================================================
 
+
+def create_folder_structure(files, file_paths, folder_tree):
+    """Create folder structure from uploaded files."""
     for file, path in zip(files, file_paths):
-
         path_parts = path.split("/")
         current = folder_tree
 
-        for part in path_parts[:-1]:  # Traverse folders
+        # Navigate to the correct folder
+        for part in path_parts[:-1]:
             current = current.setdefault(part, {})
-        # Read file content as text (optionally decode if needed)
 
-        if file.filename.endswith(".entity") or file.filename.endswith(".meta"):
-            content = json.loads(file.read())
-        elif file.filename.endswith(".png"):
-            content = file.read()
-        elif file.filename.endswith(".ffe"):
-            content = file.read().decode("utf-8")
-            session["ffe_data"] = parseFFE(content)
-        else:
-            content = file.read()
-
+        # Process file content based on extension
+        content = process_file_content(file)
         current[path_parts[-1]] = content
 
     return folder_tree
 
 
-def createFolderStructureFromDisk(base_folder):
+def process_file_content(file):
+    """Process file content based on file extension."""
+    filename = file.filename.lower()
+
+    if filename.endswith((".entity", ".meta")):
+        return json.loads(file.read())
+    elif filename.endswith(".png"):
+        return file.read()
+    elif filename.endswith(".ffe"):
+        content = file.read().decode("utf-8")
+        session["ffe_data"] = parse_ffe(content)
+        return content
+    else:
+        return file.read()
+
+
+def create_folder_structure_from_disk(base_folder):
+    """Create folder structure from files on disk."""
     folder_tree = {}
 
     for root, dirs, files in os.walk(base_folder):
@@ -251,55 +270,59 @@ def createFolderStructureFromDisk(base_folder):
 
             ext = os.path.splitext(filename)[1].lower()
             with open(full_path, "rb") as f:
-                if ext in (".entity", ".meta", ".json", ".palettes"):
-                    parsed = json.load(f)
-                    content = {"_type": "json", "_content": parsed}
-                elif ext == ".png":
-                    content = f.read()
-                elif ext == ".ffe":
-                    text = f.read().decode("utf-8")
-                    content = text
-                    session["ffe_data"] = parseFFE(text)
-                else:
-                    content = f.read()
+                content = process_disk_file_content(f, ext)
+                if ext == ".ffe":
+                    session["ffe_data"] = parse_ffe(content)
 
             current[path_parts[-1]] = content
 
     return folder_tree
 
 
-def generateAnimationNames(folder_tree):
+def process_disk_file_content(file_handle, ext):
+    """Process file content from disk based on extension."""
+    if ext in (".entity", ".meta", ".json", ".palettes"):
+        parsed = json.load(file_handle)
+        return {"_type": "json", "_content": parsed}
+    elif ext == ".png":
+        return file_handle.read()
+    elif ext == ".ffe":
+        return file_handle.read().decode("utf-8")
+    else:
+        return file_handle.read()
+
+
+def generate_animation_names(folder_tree):
+    """Extract animation names from folder tree."""
     animation_names = {}
 
-    for e, v in folder_tree[next(iter(folder_tree))]["library"]["entities"].items():
+    # Get the first (and typically only) project in the folder tree
+    project_key = next(iter(folder_tree))
+    entities = folder_tree[project_key]["library"]["entities"]
 
-        animations = v["animations"]
-
-        animation_name_list = []
-        for a in animations:
-            animation_name_list.append(a["name"])
-
-        animation_names[e] = animation_name_list
+    for entity_name, entity_data in entities.items():
+        animations = entity_data["animations"]
+        animation_names[entity_name] = [anim["name"] for anim in animations]
 
     return animation_names
 
 
-def generateAudioData(folder_tree):
+def generate_audio_data(folder_tree):
+    """Extract audio data from folder tree."""
     audio_data = {}
-    parent_audio = folder_tree[next(iter(folder_tree))]["library"]["audio"]
+    project_key = next(iter(folder_tree))
+    parent_audio = folder_tree[project_key]["library"]["audio"]
 
-    def recurse(node):
+    def process_audio_node(node):
         for name, content in node.items():
-            # current_path = f"{path}/{name}".strip("/")
-
             if name.endswith(".meta") and isinstance(content, dict):
                 guid = content["guid"]
                 content_id = content["id"]
+
                 if guid:
                     asset_path = name.replace(".meta", "")
-                    ##sprite_guids[guid] = asset_path
-
                     asset_data = node.get(asset_path)
+
                     if isinstance(asset_data, bytes):
                         audio_data[guid] = {
                             "path": asset_path,
@@ -308,300 +331,363 @@ def generateAudioData(folder_tree):
                         }
 
             elif isinstance(content, dict):
-                recurse(content)
+                process_audio_node(content)
 
-    recurse(parent_audio)
-
+    process_audio_node(parent_audio)
     return audio_data
 
 
-def generateSpriteData(sprite_data):
-    def recurse(node):
+def generate_sprite_data(sprite_data):
+    """Generate metadata for sprite PNG files."""
 
+    def process_sprite_node(node):
         for name, content in list(node.items()):
-
             if name.endswith(".png"):
                 asset_path = name + ".meta"
-                sprite_metadata = generateSpriteMetaData()
+                sprite_metadata = generate_sprite_metadata()
                 node[asset_path] = {"_type": "json", "_content": sprite_metadata}
-
             elif isinstance(content, dict):
-                recurse(content)
+                process_sprite_node(content)
 
-    recurse(sprite_data)
+    process_sprite_node(sprite_data)
     return sprite_data
 
 
-def parseFFE(text):
+def parse_ffe(text):
+    """Parse FFE (Fighter Factory Editor) sprite definition format."""
     blocks = text.strip().split("[SpriteDef]")[1:]
-    print("Blocks")
-    print(blocks[0])
-
     entries = {}
 
     for block in blocks:
-        group = re.search(r"group\s*=\s*(\d+)", block)
-        image = re.search(r"image\s*=\s*(\d+)", block)
-        xaxis = re.search(r"xaxis\s*=\s*(-?\d+)", block)
-        yaxis = re.search(r"yaxis\s*=\s*(-?\d+)", block)
-        file_name = re.search(r"file\s*=\s*(.+)", block)
+        # Extract sprite definition parameters using regex
+        patterns = {
+            "group": r"group\s*=\s*(\d+)",
+            "image": r"image\s*=\s*(\d+)",
+            "xaxis": r"xaxis\s*=\s*(-?\d+)",
+            "yaxis": r"yaxis\s*=\s*(-?\d+)",
+            "file": r"file\s*=\s*(.+)",
+        }
 
-        if group and image and xaxis and yaxis:
-            group_val = group.group(1)
-            image_val = image.group(1)
-            xaxis_val = int(xaxis.group(1))
-            yaxis_val = int(yaxis.group(1))
-            file_name_val = file_name.group(1)
-            sprite_name = f"{group_val}-{image_val}.png"
+        matches = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, block)
+            if match:
+                matches[key] = match.group(1)
+
+        # Create sprite entry if all required fields are present
+        if all(key in matches for key in ["group", "image", "xaxis", "yaxis", "file"]):
+            sprite_name = f"{matches['group']}-{matches['image']}.png"
             entries[sprite_name] = {
-                "file_name": file_name_val,
-                "xaxis": xaxis_val,
-                "yaxis": yaxis_val,
+                "file_name": matches["file"],
+                "xaxis": int(matches["xaxis"]),
+                "yaxis": int(matches["yaxis"]),
             }
-
-            ## EX:
-            ## 5040-20.png = {File Name: 5040-20.png, xaxis: 49, yaxis: 45}
 
     return entries
 
 
+# ============================================================================
+# ROUTE HANDLERS - GIF GENERATION
+# ============================================================================
+
+
 @app.route("/generateGIF", methods=["POST"])
-def generateGIF():
+def generate_gif():
+    """Generate GIF from animation data."""
     data = request.get_json()
 
     project_folder = list(session["folder_tree"].keys())[0]
-
     sprites_folder = session["folder_tree"][project_folder]["library"]["sprites"]
-    sprite_guids = getSpriteData(sprites_folder)
+    sprite_guids = get_sprite_data(sprites_folder)
 
     ce_data = session["folder_tree"][project_folder]["library"]["entities"][
         data["entityName"]
     ]
 
-    result = animationToImg(data["animationName"], sprite_guids, ce_data)
+    result = animation_to_image(data["animationName"], sprite_guids, ce_data)
     return result, 200
 
 
-def animationToImg(name, sprite_guids, ce_data):
+# ============================================================================
+# ANIMATION PROCESSING FUNCTIONS
+# ============================================================================
 
+
+def build_frame_data(keyframes, symbols, sprite_guids, layer_keyframes):
+    """Build frame data from animation layers."""
+    master_image = []
+
+    for lk in layer_keyframes:
+        keyframe_data = keyframes[lk]
+        symbol_data = symbols[keyframe_data["symbol"]]
+
+        for _ in range(keyframe_data["length"]):
+            master_image.append(
+                [
+                    sprite_guids[symbol_data["imageAsset"]]["data"],
+                    symbol_data["alpha"],
+                    symbol_data["rotation"],
+                    symbol_data["scaleX"],
+                    symbol_data["scaleY"],
+                    symbol_data["x"],
+                    symbol_data["y"],
+                ]
+            )
+
+    return master_image
+
+
+def calculate_canvas_dimensions(frame_data):
+    """Calculate canvas dimensions and positioning from frame data."""
+    if not frame_data:
+        return 0, 0, 0, 0, 0, 0
+
+    min_x = min_y = max_x = max_y = 0
+    positions = []
+
+    for img_info in frame_data:
+        img = Image.open(io.BytesIO(img_info[0]))
+        img_width, img_height = img.size
+        x, y = img_info[5], img_info[6]
+
+        min_x = min(min_x, x)
+        min_y = min(min_y, y)
+        max_x = max(max_x, x + img_width)
+        max_y = max(max_y, y + img_height)
+
+        positions.append((x, y))
+
+    canvas_width = max_x - min_x
+    canvas_height = max_y - min_y
+
+    minimum_x = min(pos[0] for pos in positions)
+    minimum_y = min(pos[1] for pos in positions)
+
+    # Adjust canvas center and dimensions
+    if minimum_x < 0:
+        canvas_center_x = -minimum_x
+    else:
+        canvas_width += minimum_x
+        canvas_center_x = minimum_x
+        min_x -= minimum_x
+
+    if minimum_y < 0:
+        canvas_center_y = -minimum_y
+    else:
+        canvas_height += minimum_y
+        canvas_center_y = minimum_y
+        min_y -= minimum_y
+
+    return canvas_width, canvas_height, canvas_center_x, canvas_center_y, min_x, min_y
+
+
+def create_frame_with_crosshair(img_info, canvas_size, canvas_center, min_pos):
+    """Create a single frame with crosshair overlay."""
+    canvas_width, canvas_height = canvas_size
+    canvas_center_x, canvas_center_y = canvas_center
+    min_x, min_y = min_pos
+
+    img = Image.open(io.BytesIO(img_info[0]))
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (56, 52, 52, 255))
+
+    # Draw crosshair
+    draw = ImageDraw.Draw(canvas)
+    plus_sign_size = 5
+
+    # Vertical line
+    draw.line(
+        [
+            (canvas_center_x, canvas_center_y - plus_sign_size),
+            (canvas_center_x, canvas_center_y + plus_sign_size),
+        ],
+        fill="gray",
+        width=1,
+    )
+
+    # Horizontal line
+    draw.line(
+        [
+            (canvas_center_x - plus_sign_size, canvas_center_y),
+            (canvas_center_x + plus_sign_size, canvas_center_y),
+        ],
+        fill="gray",
+        width=1,
+    )
+
+    # Place image
+    x, y = img_info[5], img_info[6]
+    new_x = x - min_x
+    new_y = y - min_y
+
+    canvas.paste(img, (new_x, new_y), mask=img)
+    return canvas
+
+
+def generate_gif_and_webp(frames, duration=1000 // 60):
+    """Generate GIF and WebP from frames."""
+    if not frames:
+        return None, None
+
+    # Generate GIF
+    gif_io = io.BytesIO()
+    frames[0].save(
+        gif_io,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=0,
+        transparency=0,
+        disposal=2,
+    )
+    gif_io.seek(0)
+
+    # Generate WebP
+    webp_io = io.BytesIO()
+    frames[0].save(
+        webp_io,
+        format="WEBP",
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=0,
+    )
+    webp_io.seek(0)
+
+    return gif_io, webp_io
+
+
+def animation_to_image(name, sprite_guids, ce_data):
+    """Convert animation data to image frames and generate GIF/WebP."""
     animations = ce_data["animations"]
 
-    keyframes = ce_data["keyframes"]
-    new_keyframes = convertToGUID(keyframes)
+    # Convert lists to GUID-indexed dictionaries for easy lookup
+    keyframes = convert_to_guid_dict(ce_data["keyframes"])
+    layers = convert_to_guid_dict(ce_data["layers"])
+    symbols = convert_to_guid_dict(ce_data["symbols"])
 
-    layers = ce_data["layers"]
-    new_layers = convertToGUID(layers)
+    # Find the target animation
+    target_animation = next((a for a in animations if a["name"] == name), None)
+    if not target_animation:
+        return {"error": f"Animation '{name}' not found"}
 
-    symbols = ce_data["symbols"]
-    new_symbols = convertToGUID(symbols)
+    # Process IMAGE layers only
+    for layer_id in target_animation["layers"]:
+        layer_data = layers[layer_id]
 
-    for a in animations:
-        if a["name"] == name:
-            animation_layers = a["layers"]
+        if layer_data.get("type") == "IMAGE":
+            # Build frame data
+            frame_data = build_frame_data(
+                keyframes, symbols, sprite_guids, layer_data["keyframes"]
+            )
 
-            for al in animation_layers:
-                layer_data = new_layers[al]
-                if al == layer_data["$id"] and layer_data["type"] == "IMAGE":
-                    layer_keyframes = layer_data["keyframes"]
-                    master_image = []
-                    for lk in layer_keyframes:
-                        keyframe_data = new_keyframes[lk]
-                        # print(keyframe_data)
+            if not frame_data:
+                continue
 
-                        symbol_data = new_symbols[keyframe_data["symbol"]]
-                        for x in range(0, keyframe_data["length"]):
-                            # print(sprite_guids[symbol_data['imageAsset']]['path'])
-                            master_image.append(
-                                [
-                                    sprite_guids[symbol_data["imageAsset"]]["data"],
-                                    symbol_data["alpha"],
-                                    symbol_data["rotation"],
-                                    symbol_data["scaleX"],
-                                    symbol_data["scaleY"],
-                                    symbol_data["x"],
-                                    symbol_data["y"],
-                                ]
-                            )
+            # Calculate canvas dimensions
+            canvas_dims = calculate_canvas_dimensions(frame_data)
+            (
+                canvas_width,
+                canvas_height,
+                canvas_center_x,
+                canvas_center_y,
+                min_x,
+                min_y,
+            ) = canvas_dims
 
-                    min_x = min_y = 0
-                    max_x = max_y = 0
+            # Create frames
+            frames = []
+            for img_info in frame_data:
+                frame = create_frame_with_crosshair(
+                    img_info,
+                    (canvas_width, canvas_height),
+                    (canvas_center_x, canvas_center_y),
+                    (min_x, min_y),
+                )
+                frames.append(frame)
 
-                    x_pos = []
-                    y_pos = []
+            # Generate output formats
+            gif_io, webp_io = generate_gif_and_webp(frames)
 
-                    for img_info in master_image:
-                        # print(img_info[0])
-                        img = Image.open(io.BytesIO(img_info[0]))
-                        # img = Image.open(img_info[0])
-                        img_width, img_height = img.size
-                        x, y = (img_info[5], img_info[6])
+            if gif_io and webp_io:
+                gif_base64 = base64.b64encode(gif_io.read()).decode("utf-8")
+                webp_base64 = base64.b64encode(webp_io.read()).decode("utf-8")
 
-                        # Track the minimum and maximum coordinates
-                        min_x = min(min_x, x)
-                        min_y = min(min_y, y)
+                return {
+                    "name": f"{name}.gif",
+                    "data": gif_base64,
+                    "preview": webp_base64,
+                }
 
-                        max_x = max(max_x, x + img_width)
-                        max_y = max(max_y, y + img_height)
-
-                        x_pos.append(x)
-                        y_pos.append(y)
-
-                    canvas_width = max_x - min_x
-                    canvas_height = max_y - min_y
-
-                    minimum_x = min(x_pos)
-                    minimum_y = min(y_pos)
-
-                    if minimum_x < 0:
-                        canvas_center_x = minimum_x * -1
-                    else:
-                        print("Here")
-                        canvas_width += minimum_x
-                        canvas_center_x = minimum_x
-                        min_x -= minimum_x
-
-                    if minimum_y < 0:
-                        canvas_center_y = minimum_y * -1
-                    else:
-                        canvas_height += minimum_y
-                        canvas_center_y = minimum_y
-                        min_y -= minimum_y
-
-                    frames = []
-
-                    for img_info in master_image:
-                        img = Image.open(io.BytesIO(img_info[0]))
-
-                        canvas = Image.new(
-                            "RGBA", (canvas_width, canvas_height), (56, 52, 52, 255)
-                        )
-
-                        # Get the position wherse the image should be placed
-                        x, y = (img_info[5], img_info[6])
-
-                        draw = ImageDraw.Draw(canvas)
-                        plus_sign_size = 5  # Size of the plus sign
-
-                        # Vertical line of the plus sign at the canvas center
-                        draw.line(
-                            [
-                                (canvas_center_x, canvas_center_y - plus_sign_size),
-                                (canvas_center_x, canvas_center_y + plus_sign_size),
-                            ],
-                            fill="gray",
-                            width=1,
-                        )
-
-                        # Horizontal line of the plus sign at the canvas center
-                        draw.line(
-                            [
-                                (canvas_center_x - plus_sign_size, canvas_center_y),
-                                (canvas_center_x + plus_sign_size, canvas_center_y),
-                            ],
-                            fill="gray",
-                            width=1,
-                        )
-
-                        # Shift the position to positive coordinates by translating by the minimum X and Y
-                        new_x = x - min_x
-                        new_y = y - min_y
-
-                        if img.mode != "RGBA":
-                            img = img.convert("RGBA")
-
-                        canvas.paste(img, (new_x, new_y), mask=img)
-
-                        frames.append(canvas)
-
-                    # gif_path = name+".gif"
-                    gif_io = io.BytesIO()
-
-                    frames[0].save(
-                        gif_io,
-                        format="GIF",
-                        save_all=True,
-                        append_images=frames[1:],
-                        duration=1000
-                        // 60,  # Frame duration in milliseconds (1000 ms / 60 FPS = ~16.67 ms)
-                        loop=0,
-                        transparency=0,
-                        disposal=2,  # Clear the frame before displaying the next
-                    )
-
-                    gif_io.seek(0)
-
-                    webp_io = io.BytesIO()
-                    frames[0].save(
-                        webp_io,
-                        format="WEBP",
-                        save_all=True,
-                        append_images=frames[1:],
-                        duration=1000 // 60,
-                        loop=0,
-                    )
-                    webp_io.seek(0)
-
-    webp_base64 = base64.b64encode(webp_io.read()).decode("utf-8")
-    gif_base64 = base64.b64encode(gif_io.read()).decode("utf-8")
-    return {"name": name + ".gif", "data": gif_base64, "preview": webp_base64}
+    return {"error": "No IMAGE layers found in animation"}
 
 
-## Fraytools Animation Importer
+# ============================================================================
+# ROUTE HANDLERS - ANIMATION IMPORTER
+# ============================================================================
+
+
 @app.route("/uploadSprites", methods=["POST"])
-def uploadSprites():
+def upload_sprites():
+    """Handle sprite file uploads for animation importing."""
+    # Initialize session data
+    session_defaults = {
+        "folder_tree": {},
+        "file_count": 0,
+        "sprite_data": {},
+        "sprite_name": "",
+        "ffe_data": {},
+    }
 
-    if "folder_tree" not in session:
-        session["folder_tree"] = {}  # Initialize empty tree in session
-        session["file_count"] = 0
-        session["sprite_data"] = {}
-        session["sprite_name"] = ""
-        session["ffe_data"] = {}
+    for key, default in session_defaults.items():
+        if key not in session:
+            session[key] = default
 
     files = request.files.getlist("files")
     file_paths = request.form.getlist("file_paths")
+    total_files = int(request.form.get("total_files", 0))
 
-    sprite_data = createFolderStructure(files, file_paths, session["sprite_data"])
+    # Process uploaded files
+    sprite_data = create_folder_structure(files, file_paths, session["sprite_data"])
     session["sprite_data"] = sprite_data
-
-    # Increment the file count
     session["file_count"] += len(files)
 
-    if session["file_count"] == int(request.form.get("total_files")):
-        ffe_data = {}
-        sprite_data = generateSpriteData(sprite_data)
-
+    # Check if all files have been uploaded
+    if session["file_count"] == total_files:
+        sprite_data = generate_sprite_data(sprite_data)
         session["sprite_data"] = sprite_data
         session["sprite_name"] = list(sprite_data.keys())[0]
 
-        final_dict = {"status": "Upload Complete"}
-
-        return jsonify(final_dict), 200
+        return jsonify({"status": "Upload Complete"}), 200
 
     return jsonify({"status": "Uploading chunk..."}), 200
 
 
 @app.route("/uploadAir", methods=["POST"])
-def uploadAir():
-
+def upload_air():
+    """Handle AIR file upload for MUGEN animation data."""
     if "air_data" not in session:
         session["air_data"] = ""
 
     air_file = request.files.get("file")
+    if not air_file:
+        return jsonify({"error": "No AIR file uploaded"}), 400
 
-    session["air_data"] = air_file.read()
-
-    air_data = generateAirAnimNames(session["air_data"])
-    print(air_data["strong_forward_in"])
+    air_content = air_file.read()
+    air_data = generate_air_animation_names(air_content)
 
     session["air_data"] = air_data
-
     anim_names = list(air_data.keys())
 
     return jsonify({"status": "Upload Complete", "anim names": anim_names}), 200
 
 
 @app.route("/uploadCns", methods=["POST"])
-def uploadCns():
+def upload_cns():
+    """Handle CNS file uploads for MUGEN character data."""
     if "cns_data" not in session:
         session["cns_data"] = []
 
@@ -609,20 +695,21 @@ def uploadCns():
     if not uploaded_files:
         return jsonify({"error": "No CNS files uploaded"}), 400
 
-    for f in uploaded_files:
-        cns_data = f.read().decode("utf-8")
-        session["cns_data"].append(cns_data)
+    for file in uploaded_files:
+        cns_content = file.read().decode("utf-8")
+        session["cns_data"].append(cns_content)
 
-    return (
-        jsonify({"status": "Upload Complete"}),
-        200,
-    )
+    return jsonify({"status": "Upload Complete"}), 200
 
 
-def generateAirAnimNames(air_data):
+# ============================================================================
+# MUGEN FILE PROCESSING
+# ============================================================================
 
-    air_data = air_data.decode("utf-8").splitlines()
-    lines = air_data
+
+def generate_air_animation_names(air_data):
+    """Parse MUGEN AIR file and extract animation data."""
+    lines = air_data.decode("utf-8").splitlines()
 
     i = 0
 
@@ -779,51 +866,48 @@ def generateAirAnimNames(air_data):
 
 
 @app.route("/generateAnimPreview", methods=["POST"])
-def generateAnimPreview():
+def generate_animation_preview():
+    """Generate animation preview from MUGEN AIR data."""
     data = request.get_json()
-
     anim_name = data["animation"]
 
     sprite_names = session["sprite_data"][list(session["sprite_data"].keys())[0]]
+    frames_data = session["air_data"][anim_name]["frames"]
 
-    def get_canvas_bounds(frames, sprite_names):
-        min_x, min_y = 0, 0
-        max_x, max_y = 0, 0
+    def get_canvas_bounds(frames, sprites):
+        """Calculate canvas bounds for animation frames."""
+        min_x = min_y = max_x = max_y = 0
+
         for frame in frames:
             img = Image.open(
-                io.BytesIO(
-                    sprite_names[session["ffe_data"][frame["image"]]["file_name"]]
-                )
+                io.BytesIO(sprites[session["ffe_data"][frame["image"]]["file_name"]])
             ).convert("RGBA")
             ox, oy = frame["offset"]
+
             min_x = min(min_x, ox)
             min_y = min(min_y, oy)
             max_x = max(max_x, ox + img.width)
             max_y = max(max_y, oy + img.height)
+
         return min_x, min_y, max_x, max_y
 
-    frames_data = session["air_data"][anim_name]["frames"]
-
+    # Calculate canvas dimensions
     min_x, min_y, max_x, max_y = get_canvas_bounds(frames_data, sprite_names)
     canvas_width = max_x - min_x
     canvas_height = max_y - min_y
 
+    # Generate frames
     frames = []
     durations = []
 
-    print(frames_data)
-
     for frame in frames_data:
-
         img = Image.open(
             io.BytesIO(sprite_names[session["ffe_data"][frame["image"]]["file_name"]])
         ).convert("RGBA")
         ox, oy = frame["offset"]
 
-        # Create consistent canvas
+        # Create canvas and paste image
         canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
-
-        # Normalize offset: adjust so all frames are relative to min_x/y
         paste_x = ox - min_x
         paste_y = oy - min_y
 
@@ -833,47 +917,28 @@ def generateAnimPreview():
         frames.append(canvas)
         durations.append(frame["duration"] * 10)
 
-    # Save to in-memory GIF
-    gif_io = io.BytesIO()
-    frames[0].save(
-        gif_io,
-        format="GIF",
-        save_all=True,
-        append_images=frames[1:],
-        duration=durations,
-        loop=0,
-        disposal=2,
-        transparency=0,  # optional if your images have transparency
-    )
+    # Generate GIF and WebP
+    gif_io, webp_io = generate_gif_and_webp(frames, durations)
 
-    webp_io = io.BytesIO()
-    frames[0].save(
-        webp_io,
-        format="WEBP",
-        save_all=True,
-        append_images=frames[1:],
-        duration=durations,
-        disposal=2,
-        transparency=0,
-        loop=0,
-    )
-    webp_io.seek(0)
+    if gif_io and webp_io:
+        gif_base64 = base64.b64encode(gif_io.read()).decode("utf-8")
+        webp_base64 = base64.b64encode(webp_io.read()).decode("utf-8")
+        return {"data": gif_base64, "preview": webp_base64}
 
-    gif_io.seek(0)  # Reset pointer to start
+    return {"error": "Failed to generate animation preview"}
 
-    webp_base64 = base64.b64encode(webp_io.read()).decode("utf-8")
-    gif_base64 = base64.b64encode(gif_io.read()).decode("utf-8")
 
-    return {"data": gif_base64, "preview": webp_base64}
+# ============================================================================
+# PROJECT GENERATION FUNCTIONS
+# ============================================================================
 
 
 def add_folder_to_zip(zip_file, folder_tree, current_path=""):
-    # Only create folder entry if current_path is non-empty
+    """Recursively add folder structure to zip file."""
     if current_path:
         zip_file.writestr(current_path + "/", b"")
 
     for name, content in folder_tree.items():
-        # Build path in zip
         path_in_zip = f"{current_path}/{name}" if current_path else name
 
         if (
@@ -885,7 +950,6 @@ def add_folder_to_zip(zip_file, folder_tree, current_path=""):
             zip_file.writestr(path_in_zip, json_text.encode("utf-8"))
 
         elif isinstance(content, dict):
-            # For nested folders, recurse and pass the full path
             add_folder_to_zip(zip_file, content, path_in_zip)
 
         elif isinstance(content, (bytes, str)):
@@ -901,7 +965,8 @@ def add_folder_to_zip(zip_file, folder_tree, current_path=""):
             print(f"⚠️ Skipping {path_in_zip}: unsupported type {type(content)}")
 
 
-def generateAnimation(layers, name):
+def generate_animation(layers, name):
+    """Generate animation data structure."""
     animation_guid = str(uuid.uuid4())
     animation_data = {
         "$id": animation_guid,
@@ -909,11 +974,11 @@ def generateAnimation(layers, name):
         "name": name,
         "pluginMetadata": {},
     }
-
     return animation_guid, animation_data
 
 
-def generateLayer(keyframes, item_type, hitbox_index=0, hurtbox_index=0):
+def generate_layer(keyframes, item_type, hitbox_index=0, hurtbox_index=0):
+    """Generate layer data structure."""
     layer_guid = str(uuid.uuid4())
 
     base_layer = {
@@ -964,10 +1029,10 @@ def generateLayer(keyframes, item_type, hitbox_index=0, hurtbox_index=0):
     return layer_guid, layer_data
 
 
-def generateSymbol(
+def generate_symbol(
     image_asset=None, item_type="IMAGE", x=0, y=0, scaleX=1, scaleY=1, angle=0
 ):
-
+    """Generate symbol data structure."""
     symbol_guid = str(uuid.uuid4())
 
     # Base symbol properties
@@ -1004,7 +1069,8 @@ def generateSymbol(
     return symbol_guid, symbol_data
 
 
-def generateKeyframe(img_guid, item_type, duration):
+def generate_keyframe(img_guid, item_type, duration):
+    """Generate keyframe data structure."""
     keyframe_guid = str(uuid.uuid4())
     keyframe_data = {
         "$id": keyframe_guid,
@@ -1015,34 +1081,29 @@ def generateKeyframe(img_guid, item_type, duration):
         "tweened": False,
         "type": item_type,
     }
-
     return keyframe_guid, keyframe_data
 
 
-def addAnimationsToCE(ce_file, project_name, state_anim_map):
-    print("The big one")
+def add_animations_to_character_entity(ce_file, project_name, state_anim_map):
+    """Augment character entity with animations and optional audio frame scripts."""
     air_data = session["air_data"]
 
-    for ad in air_data:
-
+    for anim_name, anim_data in air_data.items():
         layers = []
         keyframes = []
 
-        hurtbox_count = 0
-        hitbox_count = 0
+        frames = anim_data["frames"]
+        hurtbox_count = max((len(f["hurtboxes"]) for f in frames), default=0)
+        hitbox_count = max((len(f["hitboxes"]) for f in frames), default=0)
 
-        frames = air_data[ad]["frames"]
-        hurtbox_count = max(len(f["hurtboxes"]) for f in frames)
-        hitbox_count = max(len(f["hitboxes"]) for f in frames)
+        hurtbox_keyframes = [[] for _ in range(hurtbox_count)]
+        hitbox_keyframes = [[] for _ in range(hitbox_count)]
 
-        hurtbox_keyframes = [[] for x in range(0, hurtbox_count)]
-        hitbox_keyframes = [[] for x in range(0, hitbox_count)]
-
-        def append_collision_keyframe(boxes, box_type, index_list):
+        def append_collision_keyframe(boxes, index_list, frame_duration):
             for i in range(len(index_list)):
                 if i < len(boxes):
                     hd = boxes[i]
-                    box_guid, symbol_data = generateSymbol(
+                    box_guid, symbol_data = generate_symbol(
                         item_type="COLLISION_BOX",
                         x=hd[2],
                         y=hd[3],
@@ -1053,8 +1114,8 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
                 else:
                     box_guid = None
 
-                keyframe_guid, keyframe_data = generateKeyframe(
-                    box_guid, "COLLISION_BOX", f["duration"]
+                keyframe_guid, keyframe_data = generate_keyframe(
+                    box_guid, "COLLISION_BOX", frame_duration
                 )
                 index_list[i].append(keyframe_guid)
                 ce_file["keyframes"].append(keyframe_data)
@@ -1070,30 +1131,25 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
                 x = ffe_data["xaxis"]
                 y = ffe_data["yaxis"]
 
-                if f["flip"] == "H":
-                    scaleX = f["scale"][0] * -1
-                    scaleY = f["scale"][1]
-                elif f["flip"] == "V":
-                    scaleX = f["scale"][0]
-                    scaleY = f["scale"][1] * -1
-                elif f["flip"] == "HV":
-                    scaleX = f["scale"][0] * -1
-                    scaleY = f["scale"][1] * -1
-                else:
-                    scaleX = f["scale"][0]
-                    scaleY = f["scale"][1]
+                flip = f.get("flip")
+                scaleX, scaleY = f.get("scale", [1, 1])
+                if flip == "H":
+                    scaleX *= -1
+                elif flip == "V":
+                    scaleY *= -1
+                elif flip == "HV":
+                    scaleX *= -1
+                    scaleY *= -1
 
-                if f["angle"] != 0:
-                    angle = 360 - f["angle"]
+                angle = f.get("angle", 0)
+                if angle:
+                    angle = 360 - angle
                     angle_rad = math.radians(angle)
-                    temp_x = x
-                    temp_y = y
+                    temp_x, temp_y = x, y
                     x = temp_x * math.cos(angle_rad) - temp_y * math.sin(angle_rad)
                     y = temp_x * math.sin(angle_rad) + temp_y * math.cos(angle_rad)
-                else:
-                    angle = 0
 
-                img_guid, symbol_data = generateSymbol(
+                img_guid, symbol_data = generate_symbol(
                     image_asset=img_meta["guid"],
                     item_type="IMAGE",
                     x=x * scaleX,
@@ -1104,7 +1160,7 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
                 )
             except KeyError:
                 # Fallback: blank image symbol
-                img_guid, symbol_data = generateSymbol(
+                img_guid, symbol_data = generate_symbol(
                     image_asset=None,
                     item_type="IMAGE",
                     x=0,
@@ -1116,26 +1172,24 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
 
             ce_file["symbols"].append(symbol_data)
 
-            keyframe_guid, keyframe_data = generateKeyframe(
+            keyframe_guid, keyframe_data = generate_keyframe(
                 img_guid, "IMAGE", f["duration"]
             )
             keyframes.append(keyframe_guid)
             ce_file["keyframes"].append(keyframe_data)
 
             # Append hurtbox and hitbox keyframes
-            append_collision_keyframe(f["hurtboxes"], "hurtbox", hurtbox_keyframes)
-            append_collision_keyframe(f["hitboxes"], "hitbox", hitbox_keyframes)
+            append_collision_keyframe(f["hurtboxes"], hurtbox_keyframes, f["duration"])
+            append_collision_keyframe(f["hitboxes"], hitbox_keyframes, f["duration"])
 
         # Generate and append all layers
         def create_layer(kf, itype, index=None, audio_data=None):
             if itype == "frame_script" and audio_data:
-                # Generate a UUID for the layer
                 layer_guid = str(uuid.uuid4())
-                # Build the frame script layer format
                 layer_data = {
                     "$id": layer_guid,
                     "hidden": False,
-                    "keyframes": kf,  # should be list of keyframe IDs
+                    "keyframes": kf,
                     "language": "hscript",
                     "locked": False,
                     "name": "Frame Script Layer",
@@ -1144,11 +1198,9 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
                 }
                 ce_file["layers"].append(layer_data)
                 layers.append(layer_guid)
-
                 return layer_guid, layer_data
 
-            # Default: hurtbox/hitbox/etc.
-            layer_guid, layer_data = generateLayer(
+            layer_guid, layer_data = generate_layer(
                 keyframes=kf,
                 item_type=itype,
                 hurtbox_index=index if itype == "hurtbox" else None,
@@ -1156,31 +1208,23 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
             )
             ce_file["layers"].append(layer_data)
             layers.append(layer_guid)
-
             return layer_guid, layer_data
 
         def create_audio_keyframes(audio_events):
-            # Sort events by frame
             audio_events = sorted(audio_events, key=lambda x: x["frame"])
-
             keyframes = []
             for i, event in enumerate(audio_events):
                 frame = event["frame"]
-                # Collect all events on this frame
                 same_frame_events = [e for e in audio_events if e["frame"] == frame]
-
-                # Generate code lines
                 code_lines = [f"aud('{e['audio_path']}');" for e in same_frame_events]
                 code = "\n".join(code_lines)
 
-                # Length = difference to next frame
                 if i + 1 < len(audio_events):
                     next_frame = audio_events[i + 1]["frame"]
                     length = next_frame - frame
                 else:
-                    length = 1  # default for last keyframe
+                    length = 1
 
-                # Create keyframe object
                 kf_id = str(uuid.uuid4())
                 keyframe = {
                     "$id": kf_id,
@@ -1191,98 +1235,76 @@ def addAnimationsToCE(ce_file, project_name, state_anim_map):
                 }
                 ce_file["keyframes"].append(keyframe)
                 keyframes.append(kf_id)
-
             return keyframes
 
         create_layer(keyframes, "image")
-
         for i, kfs in enumerate(hurtbox_keyframes):
             create_layer(kfs, "hurtbox", i)
-
         for i, kfs in enumerate(hitbox_keyframes):
             create_layer(kfs, "hitbox", i)
 
-        action_id = air_data[ad]["action"]
+        action_id = anim_data.get("action")
+        if action_id == 220 and action_id in state_anim_map:
+            audio_data = state_anim_map[action_id]
+            kf_ids = create_audio_keyframes(audio_data)
+            create_layer(kf_ids, "frame_script", audio_data=audio_data)
 
-        if action_id == 220:
-            print("STRONG FORWARD IN")
-            if action_id in state_anim_map:
-                audio_data = state_anim_map[action_id]
-                kf_ids = create_audio_keyframes(audio_data)
-                create_layer(kf_ids, "frame_script", audio_data=audio_data)
-
-            else:
-                print("No audio data for this action")
-
-        animation_guid, animation_data = generateAnimation(layers, ad)
-
-        ## Record layer to ce_file
+        animation_guid, animation_data = generate_animation(layers, anim_name)
         ce_file["animations"].append(animation_data)
 
     ce_file["id"] = project_name
-
     return ce_file
 
 
-## Update scripts with a new project name
-def updateScripts(scripts, project_name):
-    for s in scripts:
-        if ".meta" in s:
-            file_name = s.split(".")[0]
-            scripts[s]["_content"]["id"] = project_name + file_name
-
-        elif s == "CharacterStats.hx":
-            print(scripts[s])
-
+def update_scripts(scripts, project_name):
+    """Update script files with the new project name."""
+    for script_name in scripts:
+        if ".meta" in script_name:
+            file_name = script_name.split(".")[0]
+            scripts[script_name]["_content"]["id"] = project_name + file_name
+        elif script_name == "CharacterStats.hx":
             updated = re.sub(
                 b'(?<=self\\.getResource\\(\\)\\.getContent\\(")(.*?)(?=")',
                 project_name.encode("utf-8"),
-                scripts[s],
+                scripts[script_name],
             )
-            scripts[s] = updated
-
+            scripts[script_name] = updated
     return scripts
 
 
-## Update the manifest with new project_name
-def updateManifest(manifest, project_name):
+def update_manifest(manifest, project_name):
+    """Update the manifest with the new project name."""
     manifest["resourceId"] = project_name
 
-    for c in manifest["content"][0]:
-        if c == "id":
-            manifest["content"][0][c] = project_name
-        elif c == "name":
-            manifest["content"][0][c] = project_name
-        elif c == "description":
-            manifest["content"][0][c] = (
-                project_name
-                + "was imported by the Fraytools Animation Importer by Zardy Z"
-            )
-        elif c == "objectStatsId":
-            manifest["content"][0][c] = project_name + "CharacterStats"
-        elif c == "animationStatsId":
-            manifest["content"][0][c] = project_name + "AnimationStats"
-        elif c == "hitboxStatsId":
-            manifest["content"][0][c] = project_name + "HitboxStats"
-        elif c == "scriptId":
-            manifest["content"][0][c] = project_name + "Script"
-        elif c == "costumesId":
-            manifest["content"][0][c] = project_name + "Costumes"
-        elif c == "aiId":
-            manifest["content"][0][c] = project_name + "Ai"
+    # Update main content
+    content_updates = {
+        "id": project_name,
+        "name": project_name,
+        "description": f"{project_name} was imported by the Fraytools Animation Importer by Zardy Z",
+        "objectStatsId": f"{project_name}CharacterStats",
+        "animationStatsId": f"{project_name}AnimationStats",
+        "hitboxStatsId": f"{project_name}HitboxStats",
+        "scriptId": f"{project_name}Script",
+        "costumesId": f"{project_name}Costumes",
+        "aiId": f"{project_name}Ai",
+    }
 
+    for key, value in content_updates.items():
+        if key in manifest["content"][0]:
+            manifest["content"][0][key] = value
+
+    # Update AI code section
     ai_code = manifest["content"][1]
-    ai_code["id"] = project_name + "Ai"
-    ai_code["scriptId"] = project_name + "Ai"
-
+    ai_code["id"] = f"{project_name}Ai"
+    ai_code["scriptId"] = f"{project_name}Ai"
     manifest["content"][1] = ai_code
 
     return manifest
 
 
-## Update the costume.palettes file with the new project_name for id
-def updateCostumes(costumes, project_name):
-    costumes["id"] = project_name + "Costumes"
+def update_costumes(costumes, project_name):
+    """Update the costume.palettes file with the new project name."""
+    costumes["id"] = f"{project_name}Costumes"
     return costumes
 
 
@@ -1460,67 +1482,70 @@ def parse_sounds_by_state(cns_text):
 
 
 @app.route("/importCharacter", methods=["POST"])
-def importCharacter():
+def import_character():
+    """Import character data and generate downloadable project."""
+    try:
 
-    cns_files = session["cns_data"]
+        cns_files = session["cns_data"]
 
-    state_anim_map = {}
+        state_anim_map = {}
 
-    for cns_text in cns_files:
-        state_anim_map.update(parse_sounds_by_state(cns_text))
+        for cns_text in cns_files:
+            state_anim_map.update(parse_sounds_by_state(cns_text))
 
-    data = request.get_json()
-    app_root = current_app.root_path
-    project_name = data["projectName"]
+        data = request.get_json()
+        app_root = current_app.root_path
+        project_name = data["projectName"]
 
-    base_folder = "\\fraymakers-templates\\" + data["template"]
-    base_folder = app_root + base_folder
+        base_folder = "\\fraymakers-templates\\" + data["template"]
+        base_folder = app_root + base_folder
 
-    folder_tree = createFolderStructureFromDisk(base_folder)
+        folder_tree = create_folder_structure_from_disk(base_folder)
 
-    for f in list(folder_tree.keys()):
-        print(f)
-        if ".fraytools" in f:
-            folder_tree[project_name + ".fraytools"] = folder_tree.pop(f)
+        # Rename project folder to match project name
+        for folder_key in list(folder_tree.keys()):
+            if ".fraytools" in folder_key:
+                folder_tree[project_name + ".fraytools"] = folder_tree.pop(folder_key)
+                break
 
-    ## Add in sprites from sprite folder to project files
-    ## Need to remove any file that is not .meta or .png
-    folder_tree["library"]["sprites"][session["sprite_name"]] = session["sprite_data"][
-        session["sprite_name"]
-    ]
+        # Add sprites from sprite folder to project files
+        folder_tree["library"]["sprites"][session["sprite_name"]] = session[
+            "sprite_data"
+        ][session["sprite_name"]]
 
-    project_name = data["projectName"]
-    print("Project Name")
-    print(project_name)
+        # Process character entity file
+        ce_file = folder_tree["library"]["entities"]["character.entity"]["_content"]
+        ce_file = add_animations_to_character_entity(
+            ce_file, project_name, state_anim_map
+        )
 
-    ce_file = folder_tree["library"]["entities"]["character.entity"]["_content"]
-    ce_file = addAnimationsToCE(ce_file, project_name, state_anim_map)
+        # Update script names with new project_name
+        scripts = folder_tree["library"]["scripts"]["Character"]
+        scripts = update_scripts(scripts, project_name)
 
-    ## Update script names with new project_name
-    scripts = folder_tree["library"]["scripts"]["Character"]
+        manifest = folder_tree["library"]["manifest.json"]["_content"]
+        manifest = update_manifest(manifest, project_name)
 
-    scripts = updateScripts(scripts, project_name)
+        costumes = folder_tree["library"]["costumes.palettes"]["_content"]
+        costumes = update_costumes(costumes, project_name)
 
-    manifest = folder_tree["library"]["manifest.json"]["_content"]
-    manifest = updateManifest(manifest, project_name)
+        project_folder_tree = {project_name: folder_tree}
 
-    costumes = folder_tree["library"]["costumes.palettes"]["_content"]
-    costumes = updateCostumes(costumes, project_name)
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            add_folder_to_zip(zip_file, project_folder_tree)
 
-    project_folder_tree = {project_name: folder_tree}
+        zip_buffer.seek(0)
 
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        add_folder_to_zip(zip_file, project_folder_tree)
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{project_name}.zip",
+        )
 
-    zip_buffer.seek(0)
-
-    return send_file(
-        zip_buffer,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=project_name + ".zip",
-    )
+    except Exception as e:
+        return jsonify({"error": f"Failed to import character: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
