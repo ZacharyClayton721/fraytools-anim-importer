@@ -1,887 +1,908 @@
 <!doctype html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fray Animation Importer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
     />
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
     <style>
-        :root {
-            --primary-color: #6366f1;
-            --primary-hover: #5855eb;
-            --primary-light: #e0e7ff;
-            --secondary-color: #10b981;
-            --secondary-hover: #059669;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
-            --background-color: #f8fafc;
-            --surface-color: #ffffff;
-            --border-color: #e2e8f0;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --radius-sm: 6px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
-        }
+      :root {
+        --primary-color: #6366f1;
+        --primary-hover: #5855eb;
+        --primary-light: #e0e7ff;
+        --secondary-color: #10b981;
+        --secondary-hover: #059669;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --background-color: #f8fafc;
+        --surface-color: #ffffff;
+        --border-color: #e2e8f0;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+      }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
+      body {
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-primary);
+        line-height: 1.6;
+        min-height: 100vh;
+      }
 
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+
+      /* Header Styles */
+      .header {
+        text-align: center;
+        margin-bottom: 3rem;
+      }
+
+      .header h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .header .subtitle {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+      }
+
+      .header .supported-formats {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      /* Animated text */
+      .animated-container {
+        position: relative;
+        display: inline-block;
+        min-width: 80px;
+        height: 1.5em;
+      }
+
+      #animated-text {
+        position: absolute;
+        left: 0;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+
+      #animated-text.enter {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Card Styles */
+      .card {
+        background: var(--surface-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+      }
+
+      .card-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: linear-gradient(135deg, #fafafa, #ffffff);
+      }
+
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      /* Upload Zone Styles */
+      .upload-section {
+        margin-bottom: 2rem;
+      }
+
+      .upload-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .upload-zone {
+        position: relative;
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        text-align: center;
+        background: var(--surface-color);
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .upload-zone:hover,
+      .upload-zone.dragover {
+        border-color: var(--primary-color);
+        background: var(--primary-light);
+        transform: translateY(-2px);
+      }
+
+      .upload-zone.success {
+        border-color: var(--secondary-color);
+        background: #ecfdf5;
+      }
+
+      .upload-zone.error {
+        border-color: var(--danger-color);
+        background: #fef2f2;
+      }
+
+      .upload-icon {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        transition: color 0.3s ease;
+      }
+
+      .upload-zone:hover .upload-icon,
+      .upload-zone.dragover .upload-icon {
+        color: var(--primary-color);
+      }
+
+      .upload-zone.success .upload-icon {
+        color: var(--secondary-color);
+      }
+
+      .upload-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .upload-description {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+
+      .file-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      /* Progress Bar */
+      .progress-container {
+        margin-top: 1rem;
+        display: none;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--border-color);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 4px;
+      }
+
+      .progress-text {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+        text-align: center;
+      }
+
+      /* Status indicators */
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+      }
+
+      .status-success {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+      }
+
+      .status-error {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
+
+      .status-loading {
+        background: var(--primary-light);
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+      }
+
+      /* Template Selection */
+      .template-section {
+        display: none;
+        margin-top: 2rem;
+      }
+
+      .template-section.show {
+        display: block;
+        animation: slideIn 0.5s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-label {
+        display: block;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .form-input,
+      .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: var(--surface-color);
+      }
+
+      .form-input:focus,
+      .form-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px var(--primary-light);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-primary {
+        background: var(--primary-color);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn-secondary {
+        background: var(--secondary-color);
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: var(--secondary-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        margin: auto;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Animation Preview Section */
+      .animations-section {
+        margin-top: 2rem;
+      }
+
+      .animation-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .animation-item {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .animation-item:hover {
+        box-shadow: var(--shadow-md);
+      }
+
+      .animation-header {
+        padding: 1rem;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+      }
+
+      .animation-header:hover {
+        background: #f1f5f9;
+      }
+
+      .animation-name {
+        font-weight: 500;
+        color: var(--text-primary);
+      }
+
+      .animation-name-input {
+        font-size: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 0.5rem;
+        background: var(--surface-color);
+      }
+
+      .animation-toggle {
+        color: var(--text-muted);
+        transition: transform 0.3s ease;
+      }
+
+      .animation-toggle.open {
+        transform: rotate(180deg);
+      }
+
+      .animation-content {
+        padding: 1rem;
+        background: var(--surface-color);
+        display: none;
+      }
+
+      .animation-content.show {
+        display: block;
+        animation: expandDown 0.3s ease-out;
+      }
+
+      @keyframes expandDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 500px;
+        }
+      }
+
+      .animation-preview {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .loading-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        background: #f8fafc;
+        border-radius: var(--radius-md);
+        color: var(--text-muted);
+      }
+
+      /* Utility Classes */
+      .hidden {
+        display: none !important;
+      }
+      .text-center {
+        text-align: center;
+      }
+      .mb-4 {
+        margin-bottom: 1rem;
+      }
+      .mt-4 {
+        margin-top: 1rem;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        /* Header Styles */
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
+          padding: 1rem;
         }
 
         .header h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header .subtitle {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-        }
-
-        .header .supported-formats {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        /* Animated text */
-        .animated-container {
-            position: relative;
-            display: inline-block;
-            min-width: 80px;
-            height: 1.5em;
-        }
-
-        #animated-text {
-            position: absolute;
-            left: 0;
-            white-space: nowrap;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        #animated-text.enter {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Card Styles */
-        .card {
-            background: var(--surface-color);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(135deg, #fafafa, #ffffff);
-        }
-
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        /* Upload Zone Styles */
-        .upload-section {
-            margin-bottom: 2rem;
+          font-size: 2rem;
         }
 
         .upload-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+          grid-template-columns: 1fr;
         }
 
-        .upload-zone {
-            position: relative;
-            border: 2px dashed var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 2rem;
-            text-align: center;
-            background: var(--surface-color);
-            transition: all 0.3s ease;
-            cursor: pointer;
+        .supported-formats {
+          flex-direction: column;
+          gap: 0.25rem;
         }
+      }
 
-        .upload-zone:hover,
-        .upload-zone.dragover {
-            border-color: var(--primary-color);
-            background: var(--primary-light);
-            transform: translateY(-2px);
+      /* Loading animations */
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
         }
-
-        .upload-zone.success {
-            border-color: var(--secondary-color);
-            background: #ecfdf5;
+        50% {
+          opacity: 0.5;
         }
+      }
 
-        .upload-zone.error {
-            border-color: var(--danger-color);
-            background: #fef2f2;
-        }
+      .loading {
+        animation: pulse 2s infinite;
+      }
 
-        .upload-icon {
-            font-size: 2.5rem;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            transition: color 0.3s ease;
-        }
-
-        .upload-zone:hover .upload-icon,
-        .upload-zone.dragover .upload-icon {
-            color: var(--primary-color);
-        }
-
-        .upload-zone.success .upload-icon {
-            color: var(--secondary-color);
-        }
-
-        .upload-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-
-        .upload-description {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .file-input {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        /* Progress Bar */
-        .progress-container {
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: var(--border-color);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 4px;
-        }
-
-        .progress-text {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 0.5rem;
-            text-align: center;
-        }
-
-        /* Status indicators */
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius-sm);
-        }
-
-        .status-success {
-            background: #ecfdf5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-
-        .status-error {
-            background: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-        }
-
-        .status-loading {
-            background: var(--primary-light);
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-        }
-
-        /* Template Selection */
-        .template-section {
-            display: none;
-            margin-top: 2rem;
-        }
-
-        .template-section.show {
-            display: block;
-            animation: slideIn 0.5s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
-            display: block;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-
-        .form-input,
-        .form-select {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: var(--surface-color);
-        }
-
-        .form-input:focus,
-        .form-select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px var(--primary-light);
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 1rem;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn-secondary {
-            background: var(--secondary-color);
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: var(--secondary-hover);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-loading::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            margin: auto;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Animation Preview Section */
-        .animations-section {
-            margin-top: 2rem;
-        }
-
-        .animation-grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .animation-item {
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .animation-item:hover {
-            box-shadow: var(--shadow-md);
-        }
-
-        .animation-header {
-            padding: 1rem;
-            background: #f8fafc;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.3s ease;
-        }
-
-        .animation-header:hover {
-            background: #f1f5f9;
-        }
-
-        .animation-name {
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .animation-name-input {
-            font-size: 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            padding: 0.5rem;
-            background: var(--surface-color);
-        }
-
-        .animation-toggle {
-            color: var(--text-muted);
-            transition: transform 0.3s ease;
-        }
-
-        .animation-toggle.open {
-            transform: rotate(180deg);
-        }
-
-        .animation-content {
-            padding: 1rem;
-            background: var(--surface-color);
-            display: none;
-        }
-
-        .animation-content.show {
-            display: block;
-            animation: expandDown 0.3s ease-out;
-        }
-
-        @keyframes expandDown {
-            from {
-                opacity: 0;
-                max-height: 0;
-            }
-            to {
-                opacity: 1;
-                max-height: 500px;
-            }
-        }
-
-        .animation-preview {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .loading-placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 200px;
-            background: #f8fafc;
-            border-radius: var(--radius-md);
-            color: var(--text-muted);
-        }
-
-        /* Utility Classes */
-        .hidden { display: none !important; }
-        .text-center { text-align: center; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mt-4 { margin-top: 1rem; }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .upload-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .supported-formats {
-                flex-direction: column;
-                gap: 0.25rem;
-            }
-        }
-
-        /* Loading animations */
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .loading {
-            animation: pulse 2s infinite;
-        }
-
-        /* File type badges */
-        .file-type-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            background: var(--primary-light);
-            color: var(--primary-color);
-            border-radius: var(--radius-sm);
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin: 0.25rem;
-        }
+      /* File type badges */
+      .file-type-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: var(--primary-light);
+        color: var(--primary-color);
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin: 0.25rem;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <!-- Header Section -->
-        <header class="header">
-            <h1>Fray Animation Importer</h1>
-            <p class="subtitle">Import Animations Into Your Project with Ease</p>
-            <div class="supported-formats">
-                <span>Currently Supports:</span>
-                <span class="animated-container">
-                    <span id="animated-text"></span>
-                </span>
+      <!-- Header Section -->
+      <header class="header">
+        <h1>Fray Animation Importer</h1>
+        <p class="subtitle">Import Animations Into Your Project with Ease</p>
+        <div class="supported-formats">
+          <span>Currently Supports:</span>
+          <span class="animated-container">
+            <span id="animated-text"></span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Upload Section -->
+      <section class="upload-section">
+        <div class="card" id="uploadCard">
+          <div class="card-header">
+            <h2><i class="fas fa-upload"></i> Upload Project Files</h2>
+          </div>
+          <div class="card-body">
+            <div class="upload-grid" id="uploadGrid">
+              <!-- Sprite Folder Upload -->
+              <div class="upload-zone" id="spritesZone">
+                <input type="file" id="projectSprites" class="file-input" webkitdirectory multiple />
+                <div class="upload-icon">
+                  <i class="fas fa-folder"></i>
+                </div>
+                <div class="upload-title">Sprite Folder</div>
+                <div class="upload-description">
+                  Drag & drop your sprite folder here or click to browse
+                  <div class="mt-4">
+                    <span class="file-type-badge">PNG</span>
+                    <span class="file-type-badge">JPG</span>
+                    <span class="file-type-badge">GIF</span>
+                    <span class="file-type-badge">FFE</span>
+                    <span class="file-type-badge">SFF</span>
+                  </div>
+                </div>
+                <div class="progress-container">
+                  <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                  </div>
+                  <div class="progress-text">Uploading...</div>
+                </div>
+              </div>
+
+              <!-- Air File Upload -->
+              <div class="upload-zone" id="airZone">
+                <input type="file" id="airFile" class="file-input" accept=".air" />
+                <div class="upload-icon">
+                  <i class="fas fa-file-code"></i>
+                </div>
+                <div class="upload-title">Air File</div>
+                <div class="upload-description">
+                  Upload your .air animation file
+                  <div class="mt-4">
+                    <span class="file-type-badge">AIR</span>
+                  </div>
+                </div>
+                <div class="progress-container">
+                  <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                  </div>
+                  <div class="progress-text">Processing...</div>
+                </div>
+              </div>
+
+              <!-- CNS Files Upload -->
+              <div class="upload-zone" id="cnsZone">
+                <input type="file" id="cnsFiles" class="file-input" multiple accept=".cns" />
+                <div class="upload-icon">
+                  <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="upload-title">CNS Files</div>
+                <div class="upload-description">
+                  Upload your .cns configuration files (optional)
+                  <div class="mt-4">
+                    <span class="file-type-badge">CNS</span>
+                  </div>
+                </div>
+                <div class="progress-container">
+                  <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                  </div>
+                  <div class="progress-text">Uploading...</div>
+                </div>
+              </div>
             </div>
-        </header>
+          </div>
+        </div>
+      </section>
 
-        <!-- Upload Section -->
-        <section class="upload-section">
-            <div class="card" id="uploadCard">
-                <div class="card-header">
-                    <h2><i class="fas fa-upload"></i> Upload Project Files</h2>
-                </div>
-                <div class="card-body">
-                    <div class="upload-grid" id="uploadGrid">
-                        <!-- Sprite Folder Upload -->
-                        <div class="upload-zone" id="spritesZone">
-                            <input type="file" id="projectSprites" class="file-input" webkitdirectory multiple />
-                            <div class="upload-icon">
-                                <i class="fas fa-folder"></i>
-                            </div>
-                            <div class="upload-title">Sprite Folder</div>
-                            <div class="upload-description">
-                                Drag & drop your sprite folder here or click to browse
-                                <div class="mt-4">
-                                    <span class="file-type-badge">PNG</span>
-                                    <span class="file-type-badge">JPG</span>
-                                    <span class="file-type-badge">GIF</span>
-                                    <span class="file-type-badge">FFE</span>
-                                    <span class="file-type-badge">SFF</span>
-                                </div>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar">
-                                    <div class="progress-fill"></div>
-                                </div>
-                                <div class="progress-text">Uploading...</div>
-                            </div>
-                        </div>
-
-                        <!-- Air File Upload -->
-                        <div class="upload-zone" id="airZone">
-                            <input type="file" id="airFile" class="file-input" accept=".air" />
-                            <div class="upload-icon">
-                                <i class="fas fa-file-code"></i>
-                            </div>
-                            <div class="upload-title">Air File</div>
-                            <div class="upload-description">
-                                Upload your .air animation file
-                                <div class="mt-4">
-                                    <span class="file-type-badge">AIR</span>
-                                </div>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar">
-                                    <div class="progress-fill"></div>
-                                </div>
-                                <div class="progress-text">Processing...</div>
-                            </div>
-                        </div>
-
-                        <!-- CNS Files Upload -->
-                        <div class="upload-zone" id="cnsZone">
-                            <input type="file" id="cnsFiles" class="file-input" multiple accept=".cns" />
-                            <div class="upload-icon">
-                                <i class="fas fa-file-alt"></i>
-                            </div>
-                            <div class="upload-title">CNS Files</div>
-                            <div class="upload-description">
-                                Upload your .cns configuration files (optional)
-                                <div class="mt-4">
-                                    <span class="file-type-badge">CNS</span>
-                                </div>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar">
-                                    <div class="progress-fill"></div>
-                                </div>
-                                <div class="progress-text">Uploading...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <!-- Template Selection Section -->
+      <section class="template-section" id="templateSection">
+        <div class="card">
+          <div class="card-header">
+            <h2><i class="fas fa-cog"></i> Project Configuration</h2>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="selectedTemplate" class="form-label">Choose Template</label>
+              <select id="selectedTemplate" class="form-select">
+                <option value="fraymakers-super-template">Super Template</option>
+                <option value="characterTemplate">Character Template</option>
+              </select>
             </div>
-        </section>
 
-        <!-- Template Selection Section -->
-        <section class="template-section" id="templateSection">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-cog"></i> Project Configuration</h2>
-                </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label for="selectedTemplate" class="form-label">Choose Template</label>
-                        <select id="selectedTemplate" class="form-select">
-                            <option value="fraymakers-super-template">Super Template</option>
-                            <option value="characterTemplate">Character Template</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="projectName" class="form-label">Project Name</label>
-                        <input 
-                            type="text" 
-                            id="projectName" 
-                            class="form-input" 
-                            placeholder="Enter your project name..."
-                            required
-                        />
-                    </div>
-                    
-                    <button class="btn btn-primary" id="importBtn" onclick="importCharacter(event)">
-                        <i class="fas fa-download"></i>
-                        Import Character
-                    </button>
-                </div>
+            <div class="form-group">
+              <label for="projectName" class="form-label">Project Name</label>
+              <input
+                type="text"
+                id="projectName"
+                class="form-input"
+                placeholder="Enter your project name..."
+                required
+              />
             </div>
-        </section>
 
-        <!-- Animations Preview Section -->
-        <section class="animations-section" id="animationsSection" style="display: none;">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-play-circle"></i> Animation Preview</h2>
-                </div>
-                <div class="card-body">
-                    <div class="animation-grid" id="animNameDisplay">
-                        <!-- Animation items will be dynamically added here -->
-                    </div>
-                </div>
+            <button class="btn btn-primary" id="importBtn" onclick="importCharacter(event)">
+              <i class="fas fa-download"></i>
+              Import Character
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Animations Preview Section -->
+      <section class="animations-section" id="animationsSection" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <h2><i class="fas fa-play-circle"></i> Animation Preview</h2>
+          </div>
+          <div class="card-body">
+            <div class="animation-grid" id="animNameDisplay">
+              <!-- Animation items will be dynamically added here -->
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
     </div>
 
     <script>
-        // Application State
-        const AppState = {
-            spritesUploaded: false,
-            airUploaded: false,
-            cnsUploaded: false,
-            animationNames: [],
-            isProcessing: false
-        };
+      // Application State
+      const AppState = {
+        spritesUploaded: false,
+        airUploaded: false,
+        cnsUploaded: false,
+        animationNames: [],
+        isProcessing: false,
+      };
 
-        // UI Helper Functions
-        const UI = {
-            showProgress(zoneId, progress = 0) {
-                const zone = document.getElementById(zoneId);
-                const progressContainer = zone.querySelector('.progress-container');
-                const progressFill = zone.querySelector('.progress-fill');
-                
-                progressContainer.style.display = 'block';
-                progressFill.style.width = progress + '%';
-            },
+      // UI Helper Functions
+      const UI = {
+        showProgress(zoneId, progress = 0) {
+          const zone = document.getElementById(zoneId);
+          const progressContainer = zone.querySelector('.progress-container');
+          const progressFill = zone.querySelector('.progress-fill');
 
-            hideProgress(zoneId) {
-                const zone = document.getElementById(zoneId);
-                const progressContainer = zone.querySelector('.progress-container');
-                progressContainer.style.display = 'none';
-            },
+          progressContainer.style.display = 'block';
+          progressFill.style.width = progress + '%';
+        },
 
-            setZoneState(zoneId, state, message = '') {
-                const zone = document.getElementById(zoneId);
-                zone.classList.remove('success', 'error', 'loading');
-                
-                if (state) {
-                    zone.classList.add(state);
-                }
+        hideProgress(zoneId) {
+          const zone = document.getElementById(zoneId);
+          const progressContainer = zone.querySelector('.progress-container');
+          progressContainer.style.display = 'none';
+        },
 
-                if (message) {
-                    const statusDiv = zone.querySelector('.status-indicator') || document.createElement('div');
-                    statusDiv.className = `status-indicator status-${state}`;
-                    statusDiv.innerHTML = `<i class="fas fa-${state === 'success' ? 'check' : state === 'error' ? 'exclamation-triangle' : 'spinner'}"></i>${message}`;
-                    
-                    if (!zone.querySelector('.status-indicator')) {
-                        zone.appendChild(statusDiv);
-                    }
-                }
-            },
+        setZoneState(zoneId, state, message = '') {
+          const zone = document.getElementById(zoneId);
+          zone.classList.remove('success', 'error', 'loading');
 
-            showTemplateSection() {
-                const section = document.getElementById('templateSection');
-                section.classList.add('show');
-                section.scrollIntoView({ behavior: 'smooth' });
-            },
+          if (state) {
+            zone.classList.add(state);
+          }
 
-            showAnimationsSection() {
-                const section = document.getElementById('animationsSection');
-                section.style.display = 'block';
-                section.scrollIntoView({ behavior: 'smooth' });
+          if (message) {
+            const statusDiv = zone.querySelector('.status-indicator') || document.createElement('div');
+            statusDiv.className = `status-indicator status-${state}`;
+            statusDiv.innerHTML = `<i class="fas fa-${state === 'success' ? 'check' : state === 'error' ? 'exclamation-triangle' : 'spinner'}"></i>${message}`;
+
+            if (!zone.querySelector('.status-indicator')) {
+              zone.appendChild(statusDiv);
             }
-        };
+          }
+        },
 
-        // File Upload Handlers
-        async function uploadSprites(event) {
-            const files = event.target.files;
-            if (!files.length) return;
+        showTemplateSection() {
+          const section = document.getElementById('templateSection');
+          section.classList.add('show');
+          section.scrollIntoView({ behavior: 'smooth' });
+        },
 
-            AppState.isProcessing = true;
-            UI.setZoneState('spritesZone', 'loading', 'Uploading sprites...');
-            UI.showProgress('spritesZone', 0);
+        showAnimationsSection() {
+          const section = document.getElementById('animationsSection');
+          section.style.display = 'block';
+          section.scrollIntoView({ behavior: 'smooth' });
+        },
+      };
 
-            const chunkSize = 100;
-            const filesArray = Array.from(files);
-            const chunks = [];
+      // File Upload Handlers
+      async function uploadSprites(event) {
+        const files = event.target.files;
+        if (!files.length) return;
 
-            // Split files into chunks
-            for (let i = 0; i < filesArray.length; i += chunkSize) {
-                chunks.push(filesArray.slice(i, i + chunkSize));
-            }
+        AppState.isProcessing = true;
+        UI.setZoneState('spritesZone', 'loading', 'Uploading sprites...');
+        UI.showProgress('spritesZone', 0);
 
-            try {
-                for (let i = 0; i < chunks.length; i++) {
-                    const chunk = chunks[i];
-                    const formData = new FormData();
+        const chunkSize = 100;
+        const filesArray = Array.from(files);
+        const chunks = [];
 
-                    chunk.forEach((file) => {
-                        formData.append('files', file);
-                        formData.append('file_paths', file.webkitRelativePath);
-                    });
-
-                    formData.append('total_files', files.length);
-
-                    const progress = Math.round(((i + 1) / chunks.length) * 100);
-                    UI.showProgress('spritesZone', progress);
-
-                    const response = await fetch('/uploadSprites', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
-                    const result = await response.json();
-
-                    if (result.status === 'Upload Complete') {
-                        AppState.spritesUploaded = true;
-                        UI.setZoneState('spritesZone', 'success', 'Sprites uploaded successfully!');
-                        UI.hideProgress('spritesZone');
-                        checkUploadCompletion();
-                        break;
-                    }
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-                UI.setZoneState('spritesZone', 'error', 'Upload failed. Please try again.');
-                UI.hideProgress('spritesZone');
-            } finally {
-                AppState.isProcessing = false;
-            }
+        // Split files into chunks
+        for (let i = 0; i < filesArray.length; i += chunkSize) {
+          chunks.push(filesArray.slice(i, i + chunkSize));
         }
 
-        async function uploadAirFile(event) {
-            const files = event.target.files;
-            if (!files.length) return;
-
-            AppState.isProcessing = true;
-            UI.setZoneState('airZone', 'loading', 'Processing AIR file...');
-            UI.showProgress('airZone', 50);
-
+        try {
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
             const formData = new FormData();
-            formData.append('file', files[0]);
 
-            try {
-                const response = await fetch('/uploadAir', {
-                    method: 'POST',
-                    body: formData,
-                });
+            chunk.forEach((file) => {
+              formData.append('files', file);
+              formData.append('file_paths', file.webkitRelativePath);
+            });
 
-                const result = await response.json();
+            formData.append('total_files', files.length);
 
-                if (result.status === 'Upload Complete') {
-                    AppState.airUploaded = true;
-                    AppState.animationNames = result['anim names'] || [];
-                    
-                    UI.setZoneState('airZone', 'success', 'AIR file processed successfully!');
-                    UI.hideProgress('airZone');
-                    
-                    createAnimationElements();
-                    UI.showAnimationsSection();
-                    checkUploadCompletion();
-                } else {
-                    throw new Error('Failed to process AIR file');
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-                UI.setZoneState('airZone', 'error', 'Failed to process AIR file.');
-                UI.hideProgress('airZone');
-            } finally {
-                AppState.isProcessing = false;
+            const progress = Math.round(((i + 1) / chunks.length) * 100);
+            UI.showProgress('spritesZone', progress);
+
+            const response = await fetch('/uploadSprites', {
+              method: 'POST',
+              body: formData,
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'Upload Complete') {
+              AppState.spritesUploaded = true;
+              UI.setZoneState('spritesZone', 'success', 'Sprites uploaded successfully!');
+              UI.hideProgress('spritesZone');
+              checkUploadCompletion();
+              break;
             }
+          }
+        } catch (error) {
+          console.error('Upload failed:', error);
+          UI.setZoneState('spritesZone', 'error', 'Upload failed. Please try again.');
+          UI.hideProgress('spritesZone');
+        } finally {
+          AppState.isProcessing = false;
+        }
+      }
+
+      async function uploadAirFile(event) {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        AppState.isProcessing = true;
+        UI.setZoneState('airZone', 'loading', 'Processing AIR file...');
+        UI.showProgress('airZone', 50);
+
+        const formData = new FormData();
+        formData.append('file', files[0]);
+
+        try {
+          const response = await fetch('/uploadAir', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (result.status === 'Upload Complete') {
+            AppState.airUploaded = true;
+            AppState.animationNames = result['anim names'] || [];
+
+            UI.setZoneState('airZone', 'success', 'AIR file processed successfully!');
+            UI.hideProgress('airZone');
+
+            createAnimationElements();
+            UI.showAnimationsSection();
+            checkUploadCompletion();
+          } else {
+            throw new Error('Failed to process AIR file');
+          }
+        } catch (error) {
+          console.error('Upload failed:', error);
+          UI.setZoneState('airZone', 'error', 'Failed to process AIR file.');
+          UI.hideProgress('airZone');
+        } finally {
+          AppState.isProcessing = false;
+        }
+      }
+
+      async function uploadCnsFiles(event) {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        UI.setZoneState('cnsZone', 'loading', 'Uploading CNS files...');
+        UI.showProgress('cnsZone', 50);
+
+        const formData = new FormData();
+        for (const file of files) {
+          formData.append('files', file);
         }
 
-        async function uploadCnsFiles(event) {
-            const files = event.target.files;
-            if (!files.length) return;
+        try {
+          const response = await fetch('/uploadCns', {
+            method: 'POST',
+            body: formData,
+          });
 
-            UI.setZoneState('cnsZone', 'loading', 'Uploading CNS files...');
-            UI.showProgress('cnsZone', 50);
+          const result = await response.json();
 
-            const formData = new FormData();
-            for (const file of files) {
-                formData.append('files', file);
-            }
-
-            try {
-                const response = await fetch('/uploadCns', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const result = await response.json();
-
-                if (result.status === 'Upload Complete') {
-                    AppState.cnsUploaded = true;
-                    UI.setZoneState('cnsZone', 'success', 'CNS files uploaded successfully!');
-                    UI.hideProgress('cnsZone');
-                } else {
-                    throw new Error('Failed to upload CNS files');
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-                UI.setZoneState('cnsZone', 'error', 'Failed to upload CNS files.');
-                UI.hideProgress('cnsZone');
-            }
+          if (result.status === 'Upload Complete') {
+            AppState.cnsUploaded = true;
+            UI.setZoneState('cnsZone', 'success', 'CNS files uploaded successfully!');
+            UI.hideProgress('cnsZone');
+          } else {
+            throw new Error('Failed to upload CNS files');
+          }
+        } catch (error) {
+          console.error('Upload failed:', error);
+          UI.setZoneState('cnsZone', 'error', 'Failed to upload CNS files.');
+          UI.hideProgress('cnsZone');
         }
+      }
 
-        function checkUploadCompletion() {
-            if (AppState.spritesUploaded && AppState.airUploaded) {
-                UI.showTemplateSection();
-            }
+      function checkUploadCompletion() {
+        if (AppState.spritesUploaded && AppState.airUploaded) {
+          UI.showTemplateSection();
         }
+      }
 
-        function createAnimationElements() {
-            const container = document.getElementById('animNameDisplay');
-            container.innerHTML = '';
+      function createAnimationElements() {
+        const container = document.getElementById('animNameDisplay');
+        container.innerHTML = '';
 
-            AppState.animationNames.forEach(animName => {
-                const animItem = document.createElement('div');
-                animItem.className = 'animation-item';
+        AppState.animationNames.forEach((animName) => {
+          const animItem = document.createElement('div');
+          animItem.className = 'animation-item';
 
-                animItem.innerHTML = `
+          animItem.innerHTML = `
                     <div class="animation-header" data-air-anim="${animName}">
                         <div>
                             <span class="animation-name">${animName}</span>
@@ -897,33 +918,33 @@
                     </div>
                 `;
 
-                const header = animItem.querySelector('.animation-header');
-                const content = animItem.querySelector('.animation-content');
-                const toggle = animItem.querySelector('.animation-toggle');
-                const nameSpan = animItem.querySelector('.animation-name');
-                const nameInput = animItem.querySelector('.animation-name-input');
+          const header = animItem.querySelector('.animation-header');
+          const content = animItem.querySelector('.animation-content');
+          const toggle = animItem.querySelector('.animation-toggle');
+          const nameSpan = animItem.querySelector('.animation-name');
+          const nameInput = animItem.querySelector('.animation-name-input');
 
-                let isExpanded = false;
-                let previewLoaded = false;
+          let isExpanded = false;
+          let previewLoaded = false;
 
-                header.addEventListener('click', async (e) => {
-                    if (e.target === nameSpan || e.target === nameInput) return;
+          header.addEventListener('click', async (e) => {
+            if (e.target === nameSpan || e.target === nameInput) return;
 
-                    isExpanded = !isExpanded;
-                    content.classList.toggle('show', isExpanded);
-                    toggle.classList.toggle('open', isExpanded);
+            isExpanded = !isExpanded;
+            content.classList.toggle('show', isExpanded);
+            toggle.classList.toggle('open', isExpanded);
 
-                    if (isExpanded && !previewLoaded) {
-                        try {
-                            const response = await fetch('/generateAnimPreview', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ animation: animName }),
-                            });
+            if (isExpanded && !previewLoaded) {
+              try {
+                const response = await fetch('/generateAnimPreview', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ animation: animName }),
+                });
 
-                            if (response.ok) {
-                                const data = await response.json();
-                                content.innerHTML = `
+                if (response.ok) {
+                  const data = await response.json();
+                  content.innerHTML = `
                                     <div style="margin-bottom: 1rem;">
                                         <h4>Animation Options</h4>
                                         <p>Configure settings for ${animName}</p>
@@ -932,331 +953,343 @@
                                          alt="${animName} preview" 
                                          class="animation-preview" />
                                 `;
-                                previewLoaded = true;
-                            }
-                        } catch (error) {
-                            console.error('Failed to load preview:', error);
-                            content.innerHTML = '<p>Failed to load preview</p>';
-                        }
-                    }
-                });
-
-                // Name editing functionality
-                nameSpan.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    nameSpan.style.display = 'none';
-                    nameInput.style.display = 'inline-block';
-                    nameInput.focus();
-                });
-
-                nameInput.addEventListener('blur', () => {
-                    nameSpan.textContent = nameInput.value;
-                    nameInput.style.display = 'none';
-                    nameSpan.style.display = 'inline-block';
-                });
-
-                nameInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        nameInput.blur();
-                    }
-                });
-
-                container.appendChild(animItem);
-            });
-        }
-
-        async function importCharacter(event) {
-            event.preventDefault();
-            
-            const btn = event.target;
-            const projectName = document.getElementById('projectName').value.trim();
-            const selectedTemplate = document.getElementById('selectedTemplate').value;
-
-            if (!projectName) {
-                alert('Please enter a project name');
-                return;
-            }
-
-            btn.classList.add('btn-loading');
-            btn.disabled = true;
-            btn.innerHTML = '<span>Importing...</span>';
-
-            try {
-                const response = await fetch('/importCharacter', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        template: selectedTemplate,
-                        projectName: projectName,
-                    }),
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to import character');
+                  previewLoaded = true;
                 }
-
-                // Handle file download
-                let filename = 'project_files.zip';
-                const disposition = response.headers.get('Content-Disposition');
-                if (disposition && disposition.includes('attachment')) {
-                    const match = disposition.match(/filename[^;=\n]*=((['\"]).*?\2|[^;\n]*)/);
-                    if (match && match[1]) {
-                        filename = match[1].replace(/['"]/g, '');
-                    }
-                }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-
-                // Show success message
-                btn.innerHTML = '<i class="fas fa-check"></i> Import Complete!';
-                btn.style.background = 'var(--secondary-color)';
-                
-                setTimeout(() => {
-                    btn.innerHTML = '<i class="fas fa-download"></i> Import Character';
-                    btn.style.background = 'var(--primary-color)';
-                    btn.classList.remove('btn-loading');
-                    btn.disabled = false;
-                }, 3000);
-
-            } catch (error) {
-                console.error('Import failed:', error);
-                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Import Failed';
-                btn.style.background = 'var(--danger-color)';
-                
-                setTimeout(() => {
-                    btn.innerHTML = '<i class="fas fa-download"></i> Import Character';
-                    btn.style.background = 'var(--primary-color)';
-                    btn.classList.remove('btn-loading');
-                    btn.disabled = false;
-                }, 3000);
+              } catch (error) {
+                console.error('Failed to load preview:', error);
+                content.innerHTML = '<p>Failed to load preview</p>';
+              }
             }
-        }
+          });
 
-        // Drag and Drop Functionality
-        function setupDragAndDrop() {
-            const zones = document.querySelectorAll('.upload-zone');
+          // Name editing functionality
+          nameSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            nameSpan.style.display = 'none';
+            nameInput.style.display = 'inline-block';
+            nameInput.focus();
+          });
 
-            zones.forEach(zone => {
-                const input = zone.querySelector('.file-input');
+          nameInput.addEventListener('blur', () => {
+            nameSpan.textContent = nameInput.value;
+            nameInput.style.display = 'none';
+            nameSpan.style.display = 'inline-block';
+          });
 
-                zone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    zone.classList.add('dragover');
-                });
-
-                zone.addEventListener('dragleave', (e) => {
-                    e.preventDefault();
-                    zone.classList.remove('dragover');
-                });
-
-                zone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    zone.classList.remove('dragover');
-
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        input.files = files;
-                        input.dispatchEvent(new Event('change'));
-                    }
-                });
-
-                // Handle file input changes
-                input.addEventListener('change', (e) => {
-                    if (zone.id === 'spritesZone') uploadSprites(e);
-                    else if (zone.id === 'airZone') uploadAirFile(e);
-                    else if (zone.id === 'cnsZone') uploadCnsFiles(e);
-                });
-            });
-        }
-
-        // Animated Text Function
-        function setupAnimatedText() {
-            const words = ['Folder', 'Mugen', 'Aseprite', 'GIF'];
-            let index = 0;
-            const textElement = document.getElementById('animated-text');
-
-            function animateText() {
-                textElement.classList.remove('enter');
-                
-                setTimeout(() => {
-                    textElement.textContent = words[index];
-                    textElement.classList.add('enter');
-                    index = (index + 1) % words.length;
-                }, 100);
+          nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              nameInput.blur();
             }
+          });
 
-            animateText();
-            setInterval(animateText, 4000);
-        }
-
-        // Initialize App
-        document.addEventListener('DOMContentLoaded', () => {
-            setupDragAndDrop();
-            setupAnimatedText();
-            
-            // Fix for sprite folder drag-and-drop
-            fixSpriteFolderDragDrop();
+          container.appendChild(animItem);
         });
-        
-        // Enhanced drag-and-drop fix for sprite folder
-        function fixSpriteFolderDragDrop() {
-            const spritesZone = document.getElementById('spritesZone');
-            const spritesInput = document.getElementById('projectSprites');
-            
-            if (!spritesZone || !spritesInput) {
-                console.log('Sprites zone or input not found');
-                return;
+      }
+
+      async function importCharacter(event) {
+        event.preventDefault();
+
+        const btn = event.target;
+        const projectName = document.getElementById('projectName').value.trim();
+        const selectedTemplate = document.getElementById('selectedTemplate').value;
+
+        if (!projectName) {
+          alert('Please enter a project name');
+          return;
+        }
+
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+        btn.innerHTML = '<span>Importing...</span>';
+
+        try {
+          const response = await fetch('/importCharacter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              template: selectedTemplate,
+              projectName: projectName,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to import character');
+          }
+
+          // Handle file download
+          let filename = 'project_files.zip';
+          const disposition = response.headers.get('Content-Disposition');
+          if (disposition && disposition.includes('attachment')) {
+            const match = disposition.match(/filename[^;=\n]*=((['\"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+              filename = match[1].replace(/['"]/g, '');
             }
-            
-            console.log('Setting up enhanced drag-drop for sprites zone');
-            
-            // First, remove ALL existing event listeners by cloning ONLY the sprites zone
-            const newSpritesZone = spritesZone.cloneNode(true);
-            spritesZone.parentNode.replaceChild(newSpritesZone, spritesZone);
-            
-            // Re-add the input change listener
-            const newSpritesInput = newSpritesZone.querySelector('#projectSprites');
-            if (newSpritesInput) {
-                newSpritesInput.addEventListener('change', uploadSprites);
+          }
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+
+          // Show success message
+          btn.innerHTML = '<i class="fas fa-check"></i> Import Complete!';
+          btn.style.background = 'var(--secondary-color)';
+
+          setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-download"></i> Import Character';
+            btn.style.background = 'var(--primary-color)';
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+          }, 3000);
+        } catch (error) {
+          console.error('Import failed:', error);
+          btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Import Failed';
+          btn.style.background = 'var(--danger-color)';
+
+          setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-download"></i> Import Character';
+            btn.style.background = 'var(--primary-color)';
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+          }, 3000);
+        }
+      }
+
+      // Drag and Drop Functionality
+      function setupDragAndDrop() {
+        const zones = document.querySelectorAll('.upload-zone');
+
+        zones.forEach((zone) => {
+          const input = zone.querySelector('.file-input');
+
+          zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+          });
+
+          zone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+          });
+
+          zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+              input.files = files;
+              input.dispatchEvent(new Event('change'));
             }
-            
-            // Add our custom drag and drop handlers
-            newSpritesZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                newSpritesZone.classList.add('dragover');
+          });
+
+          // Handle file input changes
+          input.addEventListener('change', (e) => {
+            if (zone.id === 'spritesZone') uploadSprites(e);
+            else if (zone.id === 'airZone') uploadAirFile(e);
+            else if (zone.id === 'cnsZone') uploadCnsFiles(e);
+          });
+        });
+      }
+
+      // Animated Text Function
+      function setupAnimatedText() {
+        const words = ['Folder', 'Mugen', 'Aseprite', 'GIF'];
+        let index = 0;
+        const textElement = document.getElementById('animated-text');
+
+        function animateText() {
+          textElement.classList.remove('enter');
+
+          setTimeout(() => {
+            textElement.textContent = words[index];
+            textElement.classList.add('enter');
+            index = (index + 1) % words.length;
+          }, 100);
+        }
+
+        animateText();
+        setInterval(animateText, 4000);
+      }
+
+      // Initialize App
+      document.addEventListener('DOMContentLoaded', () => {
+        setupDragAndDrop();
+        setupAnimatedText();
+
+        // Fix for sprite folder drag-and-drop
+        fixSpriteFolderDragDrop();
+      });
+
+      // Enhanced drag-and-drop fix for sprite folder
+      function fixSpriteFolderDragDrop() {
+        const spritesZone = document.getElementById('spritesZone');
+        const spritesInput = document.getElementById('projectSprites');
+
+        if (!spritesZone || !spritesInput) {
+          console.log('Sprites zone or input not found');
+          return;
+        }
+
+        console.log('Setting up enhanced drag-drop for sprites zone');
+
+        // First, remove ALL existing event listeners by cloning ONLY the sprites zone
+        const newSpritesZone = spritesZone.cloneNode(true);
+        spritesZone.parentNode.replaceChild(newSpritesZone, spritesZone);
+
+        // Re-add the input change listener
+        const newSpritesInput = newSpritesZone.querySelector('#projectSprites');
+        if (newSpritesInput) {
+          newSpritesInput.addEventListener('change', uploadSprites);
+        }
+
+        // Add our custom drag and drop handlers
+        newSpritesZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          newSpritesZone.classList.add('dragover');
+        });
+
+        newSpritesZone.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!newSpritesZone.contains(e.relatedTarget)) {
+            newSpritesZone.classList.remove('dragover');
+          }
+        });
+
+        // Our enhanced drop handler
+        newSpritesZone.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          newSpritesZone.classList.remove('dragover');
+
+          console.log('Custom drop handler triggered');
+
+          const items = e.dataTransfer.items;
+          if (!items || items.length === 0) {
+            UI.setZoneState('spritesZone', 'error', 'No files found. Please try using the browse button.');
+            return;
+          }
+
+          UI.setZoneState('spritesZone', 'loading', 'Processing dropped folder...');
+
+          try {
+            const files = [];
+
+            // Process all dropped items
+            for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              if (item.kind === 'file') {
+                const entry = item.webkitGetAsEntry();
+                if (entry) {
+                  console.log('Processing entry:', entry.name);
+                  const entryFiles = await processDirectoryEntry(entry, '');
+                  files.push(...entryFiles);
+                }
+              }
+            }
+
+            if (files.length === 0) {
+              UI.setZoneState(
+                'spritesZone',
+                'error',
+                "No files found. Please ensure you're dropping a folder with sprite files."
+              );
+              return;
+            }
+
+            // Filter for sprite files (images + .ffe files)
+            const spriteFiles = files.filter((file) => {
+              const extension = file.name.toLowerCase().split('.').pop();
+              return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'sff', 'ffe'].includes(extension);
             });
 
-            newSpritesZone.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!newSpritesZone.contains(e.relatedTarget)) {
-                    newSpritesZone.classList.remove('dragover');
-                }
-            });
-            
-            // Our enhanced drop handler
-            newSpritesZone.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                newSpritesZone.classList.remove('dragover');
-                
-                console.log('Custom drop handler triggered');
-                
-                const items = e.dataTransfer.items;
-                if (!items || items.length === 0) {
-                    UI.setZoneState('spritesZone', 'error', 'No files found. Please try using the browse button.');
+            if (spriteFiles.length === 0) {
+              UI.setZoneState(
+                'spritesZone',
+                'error',
+                'No valid sprite files found. Supported: PNG, JPG, GIF, BMP, WEBP, SFF, FFE'
+              );
+              return;
+            }
+
+            console.log(`Found ${spriteFiles.length} sprite files (including .ffe files)`);
+
+            // Create a synthetic event and call uploadSprites
+            const syntheticEvent = {
+              target: { files: spriteFiles },
+            };
+
+            await uploadSprites(syntheticEvent);
+          } catch (error) {
+            console.error('Error processing dropped folder:', error);
+            UI.setZoneState('spritesZone', 'error', 'Error processing folder. Please try using the browse button.');
+          }
+        });
+      }
+
+      // Helper function to recursively process directory entries
+      async function processDirectoryEntry(entry, path = '') {
+        return new Promise((resolve, reject) => {
+          if (entry.isFile) {
+            entry.file(
+              (file) => {
+                // Add relative path property to match webkitdirectory behavior
+                Object.defineProperty(file, 'webkitRelativePath', {
+                  value: path + file.name,
+                  writable: false,
+                  enumerable: true,
+                });
+                resolve([file]);
+              },
+              (error) => {
+                console.error('Error reading file:', error);
+                resolve([]); // Continue processing other files
+              }
+            );
+          } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            const allFiles = [];
+
+            const readEntries = () => {
+              dirReader.readEntries(
+                async (entries) => {
+                  if (entries.length === 0) {
+                    resolve(allFiles);
                     return;
-                }
-                
-                UI.setZoneState('spritesZone', 'loading', 'Processing dropped folder...');
-                
-                try {
-                    const files = [];
-                    
-                    // Process all dropped items
-                    for (let i = 0; i < items.length; i++) {
-                        const item = items[i];
-                        if (item.kind === 'file') {
-                            const entry = item.webkitGetAsEntry();
-                            if (entry) {
-                                console.log('Processing entry:', entry.name);
-                                const entryFiles = await processDirectoryEntry(entry, '');
-                                files.push(...entryFiles);
-                            }
-                        }
+                  }
+
+                  try {
+                    for (const childEntry of entries) {
+                      const childPath = path + entry.name + '/';
+                      const childFiles = await processDirectoryEntry(childEntry, childPath);
+                      allFiles.push(...childFiles);
                     }
-                    
-                    if (files.length === 0) {
-                        UI.setZoneState('spritesZone', 'error', 'No files found. Please ensure you\'re dropping a folder with sprite files.');
-                        return;
-                    }
-                    
-                    // Filter for sprite files (images + .ffe files)
-                    const spriteFiles = files.filter(file => {
-                        const extension = file.name.toLowerCase().split('.').pop();
-                        return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'sff', 'ffe'].includes(extension);
-                    });
-                    
-                    if (spriteFiles.length === 0) {
-                        UI.setZoneState('spritesZone', 'error', 'No valid sprite files found. Supported: PNG, JPG, GIF, BMP, WEBP, SFF, FFE');
-                        return;
-                    }
-                    
-                    console.log(`Found ${spriteFiles.length} sprite files (including .ffe files)`);
-                    
-                    // Create a synthetic event and call uploadSprites
-                    const syntheticEvent = {
-                        target: { files: spriteFiles }
-                    };
-                    
-                    await uploadSprites(syntheticEvent);
-                    
-                } catch (error) {
-                    console.error('Error processing dropped folder:', error);
-                    UI.setZoneState('spritesZone', 'error', 'Error processing folder. Please try using the browse button.');
+                    readEntries(); // Continue reading more entries (directories can have many files)
+                  } catch (error) {
+                    console.error('Error processing directory entry:', error);
+                    readEntries(); // Continue despite errors
+                  }
+                },
+                (error) => {
+                  console.error('Error reading directory:', error);
+                  resolve(allFiles); // Return what we have so far
                 }
-            });
-        }
-        
-        // Helper function to recursively process directory entries
-        async function processDirectoryEntry(entry, path = '') {
-            return new Promise((resolve, reject) => {
-                if (entry.isFile) {
-                    entry.file((file) => {
-                        // Add relative path property to match webkitdirectory behavior
-                        Object.defineProperty(file, 'webkitRelativePath', {
-                            value: path + file.name,
-                            writable: false,
-                            enumerable: true
-                        });
-                        resolve([file]);
-                    }, (error) => {
-                        console.error('Error reading file:', error);
-                        resolve([]); // Continue processing other files
-                    });
-                } else if (entry.isDirectory) {
-                    const dirReader = entry.createReader();
-                    const allFiles = [];
-                    
-                    const readEntries = () => {
-                        dirReader.readEntries(async (entries) => {
-                            if (entries.length === 0) {
-                                resolve(allFiles);
-                                return;
-                            }
-                            
-                            try {
-                                for (const childEntry of entries) {
-                                    const childPath = path + entry.name + '/';
-                                    const childFiles = await processDirectoryEntry(childEntry, childPath);
-                                    allFiles.push(...childFiles);
-                                }
-                                readEntries(); // Continue reading more entries (directories can have many files)
-                            } catch (error) {
-                                console.error('Error processing directory entry:', error);
-                                readEntries(); // Continue despite errors
-                            }
-                        }, (error) => {
-                            console.error('Error reading directory:', error);
-                            resolve(allFiles); // Return what we have so far
-                        });
-                    };
-                    
-                    readEntries();
-                } else {
-                    resolve([]);
-                }
-            });
-        }
+              );
+            };
+
+            readEntries();
+          } else {
+            resolve([]);
+          }
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
